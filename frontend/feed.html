@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whispr — Feed</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a10;
+      --bg-secondary: #111118;
+      --card: #16161f;
+      --elevated: #1c1c28;
+      --accent: #6C5CE7;
+      --accent-soft: rgba(108,92,231,0.12);
+      --text: #f0f0f5;
+      --text-secondary: #8b8b9e;
+      --text-muted: #55556a;
+      --border: rgba(255,255,255,0.05);
+      --shadow: 0 2px 12px rgba(0,0,0,0.4);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    
+    /* Header */
+    .header {
+      position: sticky;
+      top: 0;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+    }
+    .header-title {
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #6C5CE7, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 16px 20px;
+      overflow-x: auto;
+    }
+    .tab {
+      padding: 10px 18px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      background: var(--accent);
+      border-color: transparent;
+      color: white;
+    }
+    
+    /* Feed */
+    .feed {
+      padding: 0 20px 100px;
+    }
+    .feed-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+    }
+    .card-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+      color: white;
+      background: linear-gradient(135deg, #6C5CE7, #a78bfa);
+    }
+    .card-user {
+      flex: 1;
+    }
+    .card-username {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .card-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .card-content {
+      margin-bottom: 14px;
+    }
+    .card-text {
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .card-tags {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      padding: 4px 10px;
+      background: var(--accent-soft);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--elevated);
+      border: none;
+      border-radius: 20px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .action-btn.primary {
+      background: var(--accent);
+      color: white;
+      flex: 1;
+    }
+    .action-btn.primary:hover {
+      background: #5a4ad4;
+    }
+    
+    /* Create Post */
+    .create-post {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .create-input {
+      width: 100%;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      resize: none;
+      outline: none;
+      min-height: 80px;
+    }
+    .create-input:focus {
+      border-color: var(--accent);
+    }
+    .create-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+    }
+    .create-options {
+      display: flex;
+      gap: 8px;
+    }
+    .create-opt {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--elevated);
+      border: none;
+      color: var(--text-muted);
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .create-btn {
+      padding: 10px 20px;
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    
+    /* Bottom Nav */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 70px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+    }
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .nav-item.active {
+      color: var(--accent);
+    }
+    .nav-item .nav-icon {
+      font-size: 20px;
+    }
+    
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }
+    
+    /* Empty State */
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1 class="header-title">Whispr</h1>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="logout()">🚪</button>
+    </div>
+  </div>
+  
+  <div class="tabs">
+    <button class="tab active">🔥 Hot</button>
+    <button class="tab">Global</button>
+    <button class="tab">Nearby</button>
+    <button class="tab">Confessions</button>
+  </div>
+  
+  <div class="feed" id="feed">
+    <!-- Create Post -->
+    <div class="create-post">
+      <textarea class="create-input" id="postContent" placeholder="What's on your mind?"></textarea>
+      <div class="create-actions">
+        <div class="create-options">
+          <button class="create-opt">📷</button>
+          <button class="create-opt">🎤</button>
+          <button class="create-opt">📊</button>
+        </div>
+        <button class="create-btn" onclick="createPost()">Post</button>
+      </div>
+    </div>
+    
+    <div id="postsContainer">
+      <div class="loading">Loading posts...</div>
+    </div>
+  </div>
+  
+  <div class="bottom-nav">
+    <div class="nav-item active">
+      <span class="nav-icon">🏠</span>
+      <span>Home</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">🔍</span>
+      <span>Search</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">💬</span>
+      <span>Chats</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">👤</span>
+      <span>Profile</span>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.origin + '/api';
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      window.location.href = '/';
+    }
+    
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+    
+    // Avatar colors
+    const colors = ['#6C5CE7', '#e879a8', '#34d399', '#fb923c', '#60a5fa'];
+    
+    function getAvatarColor(seed) {
+      let hash = 0;
+      for (let i = 0; i < seed.length; i++) {
+        hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return colors[Math.abs(hash) % colors.length];
+    }
+    
+    function getInitials(username) {
+      return username.slice(0, 2).toUpperCase();
+    }
+    
+    function timeAgo(date) {
+      const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+      if (seconds < 60) return 'just now';
+      if (seconds < 3600) return `${Math.floor(seconds/60)}m`;
+      if (seconds < 86400) return `${Math.floor(seconds/3600)}h`;
+      return `${Math.floor(seconds/86400)}d`;
+    }
+    
+    async function loadPosts() {
+      try {
+        const res = await fetch(`${API}/posts`, { headers });
+        const posts = await res.json();
+        
+        const container = document.getElementById('postsContainer');
+        
+        if (posts.length === 0) {
+          container.innerHTML = `
+            <div class="empty">
+              <h3>No posts yet</h3>
+              <p>Be the first to share something anonymously!</p>
+            </div>
+          `;
+          return;
+        }
+        
+        container.innerHTML = posts.map(post => `
+          <div class="feed-card">
+            <div class="card-top">
+              <div class="avatar" style="background: ${getAvatarColor(post.author.avatar_seed)}">
+                ${getInitials(post.author.username)}
+              </div>
+              <div class="card-user">
+                <div class="card-username">${post.author.username}</div>
+                <div class="card-meta">${timeAgo(post.created_at)} · ${post.author.karma_level}</div>
+              </div>
+            </div>
+            <div class="card-content">
+              <div class="card-text">${post.content}</div>
+              ${post.tags.length > 0 ? `
+                <div class="card-tags">
+                  ${post.tags.map(tag => `<span class="tag">#${tag}</span>`).join('')}
+                </div>
+              ` : ''}
+            </div>
+            <div class="card-actions">
+              <button class="action-btn primary" onclick="replyTo(${post.id})">
+                💬 Reply
+              </button>
+              <button class="action-btn" onclick="upvote(${post.id})">
+                ❤️ ${post.upvotes}
+              </button>
+              <button class="action-btn">
+                🔗
+              </button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load posts:', err);
+      }
+    }
+    
+    async function createPost() {
+      const content = document.getElementById('postContent').value.trim();
+      if (!content) return;
+      
+      try {
+        const res = await fetch(`${API}/posts`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ content, tags: [] })
+        });
+        
+        if (res.ok) {
+          document.getElementById('postContent').value = '';
+          loadPosts();
+        }
+      } catch (err) {
+        console.error('Failed to create post:', err);
+      }
+    }
+    
+    async function upvote(postId) {
+      try {
+        await fetch(`${API}/posts/${postId}/upvote`, {
+          method: 'POST',
+          headers
+        });
+        loadPosts();
+      } catch (err) {
+        console.error('Failed to upvote:', err);
+      }
+    }
+    
+    function replyTo(postId) {
+      // TODO: Open reply modal
+      alert('Reply feature coming soon!');
+    }
+    
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.href = '/';
+    }
+    
+    // Load posts on page load
+    loadPosts();
+  </script>
+</body>
+</html>

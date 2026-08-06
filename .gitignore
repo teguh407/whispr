@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+env/
+.env
+
+# Backend specific
+backend/venv/
+backend/__pycache__/
+
+# Mobile/Android
+mobile/.gradle/
+mobile/build/
+mobile/app/build/
+mobile/local.properties
+
+# Database
+*.db
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+*.log
+*.tmp
+
+# Project specific
+reference-design.jpg
+ui-prototype*.html
+*.jpg
+*.png
