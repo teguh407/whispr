@@ -59,7 +59,7 @@ fun SettingsScreen(
                 value = serverUrl,
                 onValueChange = { serverUrl = it; saved = false },
                 label = { Text("API Base URL") },
-                placeholder = { Text("http://10.0.2.2:8080/") },
+                placeholder = { Text("http://43.134.45.106/") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
