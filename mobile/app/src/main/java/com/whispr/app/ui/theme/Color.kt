@@ -2,24 +2,26 @@ package com.whispr.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Dark theme colors
-val Purple80 = Color(0xFF6C5CE7)
-val PurpleGrey80 = Color(0xFF1c1c28)
-val Pink80 = Color(0xFFe879a8)
+// Dark theme colors - Purple to Pink gradient
+val Purple80 = Color(0xFFBB86FC)
+val PurpleGrey80 = Color(0xFF3700B3)
+val Pink80 = Color(0xFFCF6679)
 
-val Purple40 = Color(0xFF6C5CE7)
-val PurpleGrey40 = Color(0xFF16161f)
-val Pink40 = Color(0xFFe879a8)
+val Purple40 = Color(0xFFBB86FC)
+val PurpleGrey40 = Color(0xFF3700B3)
+val Pink40 = Color(0xFFCF6679)
 
-// App colors
-val Background = Color(0xFF0a0a10)
-val Surface = Color(0xFF16161f)
-val SurfaceVariant = Color(0xFF1c1c28)
-val OnBackground = Color(0xFFf0f0f5)
-val OnSurface = Color(0xFFf0f0f5)
-val OnSurfaceVariant = Color(0xFF8b8b9e)
-val Muted = Color(0xFF55556a)
-val Accent = Color(0xFF6C5CE7)
-val AccentSoft = Color(0x1F6C5CE7)
-val Green = Color(0xFF34d399)
-val Red = Color(0xFFF87171)
+// Custom Whispr colors
+val Background = Color(0xFF1A1A2E)
+val Surface = Color(0xFF16213E)
+val CardBg = Color(0xFF1F2940)
+val PrimaryPurple = Color(0xFF9B59B6)
+val PrimaryPink = Color(0xFFE91E63)
+val GradientStart = Color(0xFF7B2FBE)
+val GradientEnd = Color(0xFFE91E63)
+val TextPrimary = Color(0xFFEEEEEE)
+val TextSecondary = Color(0xFFAAAAAA)
+val UpvoteColor = Color(0xFFFFD700)
+val SuccessGreen = Color(0xFF4CAF50)
+val ErrorRed = Color(0xFFCF6679)
+val AccentTeal = Color(0xFF00BCD4)

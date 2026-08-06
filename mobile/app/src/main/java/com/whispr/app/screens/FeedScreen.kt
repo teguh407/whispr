@@ -1,16 +1,16 @@
 package com.whispr.app.screens
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,195 +21,107 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.whispr.app.network.ApiClient
-import com.whispr.app.network.PostResponse
+import com.whispr.app.data.Post
 import com.whispr.app.ui.theme.*
-import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
+import com.whispr.app.viewmodel.WhisprViewModel
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
-    token: String,
-    onLogout: () -> Unit
+    viewModel: WhisprViewModel,
+    onCreatePost: () -> Unit,
+    onPostClick: (Int) -> Unit,
+    onNavigate: (String) -> Unit
 ) {
-    var posts by remember { mutableStateOf<List<PostResponse>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var newPostContent by remember { mutableStateOf("") }
-    var isCreating by remember { mutableStateOf(false) }
-    
-    val scope = rememberCoroutineScope()
+    val posts by viewModel.posts.collectAsState()
+    val isLoading by viewModel.loading.collectAsState()
+    var selectedTag by remember { mutableStateOf<String?>(null) }
+    val tags = listOf("general", "confession", "question", "meme", "story", "advice", "hot", "new")
 
-    fun loadPosts() {
-        scope.launch {
-            isLoading = true
-            try {
-                posts = ApiClient.api.getPosts("Bearer $token")
-            } catch (e: Exception) {
-                println("Failed to load posts: ${e.message}")
-            }
-            isLoading = false
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        loadPosts()
-    }
+    LaunchedEffect(Unit) { viewModel.loadPosts() }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "Whispr",
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                },
-                actions = {
-                    IconButton(onClick = { loadPosts() }) {
-                        Icon(Icons.Default.Refresh, "Refresh")
-                    }
-                    IconButton(onClick = onLogout) {
-                        Text("🚪", fontSize = 18.sp)
-                    }
-                },
+                title = { Text("Feed", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Surface
-                )
+                    containerColor = Background,
+                    titleContentColor = TextPrimary
+                ),
+                actions = {
+                    IconButton(onClick = { onNavigate("links") }) {
+                        Icon(Icons.Default.Link, "Links", tint = PrimaryPurple)
+                    }
+                    IconButton(onClick = { onNavigate("accounts") }) {
+                        Icon(Icons.Default.SwitchAccount, "Accounts", tint = PrimaryPurple)
+                    }
+                    IconButton(onClick = { onNavigate("profile") }) {
+                        Icon(Icons.Default.Person, "Profile", tint = PrimaryPurple)
+                    }
+                }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onCreatePost,
+                containerColor = PrimaryPink,
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Default.Add, "Create Post")
+            }
         },
         containerColor = Background
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
-        ) {
-            // Create post
-            item {
-                CreatePostCard(
-                    content = newPostContent,
-                    onContentChange = { newPostContent = it },
-                    isCreating = isCreating,
-                    onCreatePost = {
-                        scope.launch {
-                            isCreating = true
-                            try {
-                                ApiClient.api.createPost(
-                                    "Bearer $token",
-                                    com.whispr.app.network.PostCreate(newPostContent)
-                                )
-                                newPostContent = ""
-                                loadPosts()
-                            } catch (e: Exception) {
-                                println("Failed to create post: ${e.message}")
-                            }
-                            isCreating = false
-                        }
-                    }
-                )
-            }
-
-            // Posts
-            if (isLoading) {
+        Column(modifier = Modifier.padding(padding)) {
+            // Tags filter
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 item {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = Accent)
-                    }
+                    FilterChip(
+                        selected = selectedTag == null,
+                        onClick = { selectedTag = null; viewModel.loadPosts() },
+                        label = { Text("All") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = PrimaryPurple,
+                            selectedLabelColor = Color.White
+                        )
+                    )
                 }
-            } else if (posts.isEmpty()) {
-                item {
-                    EmptyState()
-                }
-            } else {
-                items(posts) { post ->
-                    PostCard(
-                        post = post,
-                        onUpvote = {
-                            scope.launch {
-                                try {
-                                    ApiClient.api.upvotePost("Bearer $token", post.id)
-                                    loadPosts()
-                                } catch (e: Exception) {
-                                    println("Failed to upvote: ${e.message}")
-                                }
-                            }
-                        }
+                items(tags) { tag ->
+                    FilterChip(
+                        selected = selectedTag == tag,
+                        onClick = { selectedTag = tag; viewModel.loadPosts(tag) },
+                        label = { Text("#$tag") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = PrimaryPurple,
+                            selectedLabelColor = Color.White
+                        )
                     )
                 }
             }
-        }
-    }
-}
 
-@Composable
-fun CreatePostCard(
-    content: String,
-    onContentChange: (String) -> Unit,
-    isCreating: Boolean,
-    onCreatePost: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            OutlinedTextField(
-                value = content,
-                onValueChange = onContentChange,
-                placeholder = { Text("What's on your mind?", color = Muted) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(80.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Accent,
-                    unfocusedBorderColor = Color(0xFF2a2a3a),
-                    focusedContainerColor = SurfaceVariant,
-                    unfocusedContainerColor = SurfaceVariant
-                )
-            )
-            
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = {}, modifier = Modifier.size(36.dp)) {
-                        Text("📷", fontSize = 16.sp)
-                    }
-                    IconButton(onClick = {}, modifier = Modifier.size(36.dp)) {
-                        Text("🎤", fontSize = 16.sp)
-                    }
-                    IconButton(onClick = {}, modifier = Modifier.size(36.dp)) {
-                        Text("📊", fontSize = 16.sp)
-                    }
+            if (isLoading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = PrimaryPurple)
                 }
-                
-                Button(
-                    onClick = onCreatePost,
-                    colors = ButtonDefaults.buttonColors(containerColor = Accent),
-                    shape = RoundedCornerShape(10.dp),
-                    enabled = content.isNotBlank() && !isCreating
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(bottom = 80.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (isCreating) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
+                    items(posts) { post ->
+                        PostCard(
+                            post = post,
+                            onUpvote = { viewModel.upvotePost(post.id) },
+                            onDelete = { viewModel.deletePost(post.id) },
+                            onClick = { if (post.hasOnceView) onPostClick(post.id) },
+                            currentUserId = viewModel.currentUser.collectAsState().value?.id ?: 0
                         )
-                    } else {
-                        Text("Post", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -219,173 +131,116 @@ fun CreatePostCard(
 
 @Composable
 fun PostCard(
-    post: PostResponse,
-    onUpvote: () -> Unit
+    post: Post,
+    onUpvote: () -> Unit,
+    onDelete: () -> Unit,
+    onClick: () -> Unit,
+    currentUserId: Int
 ) {
-    val colors = listOf(Accent, Pink80, Green, Color(0xFFfb923c), Color(0xFF60a5fa))
-    val avatarColor = colors[post.author.username.hashCode().toInt() % colors.size]
-    val initials = post.author.username.take(2).uppercase()
-
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-        shape = RoundedCornerShape(16.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .animateContentSize()
+            .then(if (post.hasOnceView) Modifier.clickable { onClick() } else Modifier),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBg)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Header
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(14.dp))
+                        .size(36.dp)
+                        .clip(CircleShape)
                         .background(
-                            Brush.linearGradient(
-                                colors = listOf(avatarColor, avatarColor.copy(alpha = 0.7f))
-                            )
+                            Brush.linearGradient(listOf(PrimaryPurple, PrimaryPink))
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = initials,
+                        post.author?.displayName?.firstOrNull()?.uppercase() ?: "?",
                         color = Color.White,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 14.sp
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                Column {
-                    Text(
-                        text = post.author.username,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column {
                     Text(
-                        text = "${timeAgo(post.created_at)} · ${post.author.karma_level}",
-                        color = Muted,
-                        fontSize = 11.sp
+                        post.author?.displayName ?: "Anonymous",
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary,
+                        fontSize = 14.sp
                     )
+                    post.createdAt?.let {
+                        Text(formatTime(it), color = TextSecondary, fontSize = 11.sp)
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                if (post.hasOnceView) {
+                    Icon(Icons.Default.Visibility, null, tint = PrimaryPink, modifier = Modifier.size(16.dp))
+                }
+                if (post.authorId == currentUserId) {
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Delete, "Delete", tint = ErrorRed, modifier = Modifier.size(18.dp))
+                    }
                 }
             }
-
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
 
             // Content
-            Text(
-                text = post.content,
-                fontSize = 15.sp,
-                lineHeight = 22.sp
-            )
+            Text(post.content, color = TextPrimary, lineHeight = 22.sp)
 
             // Tags
             if (post.tags.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    post.tags.forEach { tag ->
-                        Text(
-                            text = "#$tag",
-                            color = Accent,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier
-                                .background(AccentSoft, RoundedCornerShape(20.dp))
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
+                Spacer(Modifier.height(8.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(post.tags) { tag ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = PrimaryPurple.copy(alpha = 0.2f)
+                        ) {
+                            Text(
+                                "#$tag",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                color = PrimaryPurple,
+                                fontSize = 11.sp
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
 
-            // Actions
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 14.dp)
-                    .background(SurfaceVariant, RoundedCornerShape(0.dp)),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = { },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Accent),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
+            // Upvote
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onUpvote, modifier = Modifier.size(36.dp)) {
                     Icon(
-                        Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Reply", fontWeight = FontWeight.SemiBold)
-                }
-                
-                OutlinedButton(
-                    onClick = onUpvote,
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Favorite,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = Pink80
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("${post.upvotes}")
-                }
-                
-                IconButton(onClick = { }, modifier = Modifier.size(40.dp)) {
-                    Icon(
-                        Icons.Default.Share,
-                        contentDescription = "Share",
-                        tint = Muted
+                        Icons.Default.ArrowUpward,
+                        "Upvote",
+                        tint = if (post.isUpvoted) UpvoteColor else TextSecondary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
+                Text(
+                    "${post.upvoteCount}",
+                    color = if (post.isUpvoted) UpvoteColor else TextSecondary,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp
+                )
             }
         }
     }
 }
 
-@Composable
-fun EmptyState() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(60.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("🔮", fontSize = 48.sp)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "No posts yet",
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
-            )
-            Text(
-                text = "Be the first to share something anonymously!",
-                color = Muted,
-                fontSize = 14.sp
-            )
-        }
-    }
-}
-
-fun timeAgo(dateString: String): String {
+private fun formatTime(isoTime: String): String {
     return try {
-        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-        val date = format.parse(dateString) ?: return ""
-        val now = Date()
-        val diff = now.time - date.time
-        
-        when {
-            diff < 60_000 -> "just now"
-            diff < 3_600_000 -> "${diff / 60_000}m"
-            diff < 86_400_000 -> "${diff / 3_600_000}h"
-            else -> "${diff / 86_400_000}d"
-        }
+        val instant = Instant.parse(isoTime)
+        val formatter = DateTimeFormatter.ofPattern("MMM d, h:mm a").withZone(ZoneId.systemDefault())
+        formatter.format(instant)
     } catch (e: Exception) {
-        ""
+        isoTime.take(16)
     }
 }

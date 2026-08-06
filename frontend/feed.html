@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Whispr — Feed</title>
+  <title>Whispr</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -18,6 +18,8 @@
       --text-muted: #55556a;
       --border: rgba(255,255,255,0.05);
       --shadow: 0 2px 12px rgba(0,0,0,0.4);
+      --danger: #f87171;
+      --success: #34d399;
     }
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
@@ -26,7 +28,7 @@
       color: var(--text);
       min-height: 100vh;
     }
-    
+
     /* Header */
     .header {
       position: sticky;
@@ -63,7 +65,7 @@
       cursor: pointer;
       font-size: 16px;
     }
-    
+
     /* Tabs */
     .tabs {
       display: flex;
@@ -88,7 +90,7 @@
       border-color: transparent;
       color: white;
     }
-    
+
     /* Feed */
     .feed {
       padding: 0 20px 100px;
@@ -184,7 +186,7 @@
     .action-btn.primary:hover {
       background: #5a4ad4;
     }
-    
+
     /* Create Post */
     .create-post {
       background: var(--card);
@@ -239,7 +241,7 @@
       font-weight: 700;
       cursor: pointer;
     }
-    
+
     /* Bottom Nav */
     .bottom-nav {
       position: fixed;
@@ -251,7 +253,8 @@
       border-top: 1px solid var(--border);
       display: flex;
       align-items: center;
-      padding: 0 20px;
+      padding: 0 10px;
+      z-index: 200;
     }
     .nav-item {
       flex: 1;
@@ -263,6 +266,12 @@
       font-size: 10px;
       font-weight: 600;
       cursor: pointer;
+      padding: 8px 0;
+      border-radius: 12px;
+      transition: all 0.2s;
+    }
+    .nav-item:hover {
+      color: var(--text-secondary);
     }
     .nav-item.active {
       color: var(--accent);
@@ -270,14 +279,14 @@
     .nav-item .nav-icon {
       font-size: 20px;
     }
-    
+
     /* Loading */
     .loading {
       text-align: center;
       padding: 40px;
       color: var(--text-muted);
     }
-    
+
     /* Empty State */
     .empty {
       text-align: center;
@@ -289,56 +298,458 @@
       margin-bottom: 8px;
       color: var(--text-secondary);
     }
+
+    /* Page sections */
+    .page-section {
+      display: none;
+      padding: 0 20px 100px;
+    }
+    .page-section.active {
+      display: block;
+    }
+
+    /* ===== CHAT LIST ===== */
+    .chat-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .chat-item:hover {
+      background: var(--elevated);
+    }
+    .chat-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 15px;
+      color: white;
+      flex-shrink: 0;
+    }
+    .chat-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .chat-name {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .chat-preview {
+      font-size: 13px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .chat-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .chat-badge {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ===== LINKS ===== */
+    .link-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin-bottom: 10px;
+    }
+    .link-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .link-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .link-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .link-url {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .link-delete {
+      padding: 8px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      border-radius: 8px;
+      transition: color 0.2s;
+    }
+    .link-delete:hover {
+      color: var(--danger);
+    }
+
+    /* Create Link Form */
+    .create-link {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .create-link h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+    .input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .input-row .form-input {
+      flex: 1;
+    }
+    .form-input {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus {
+      border-color: var(--accent);
+    }
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+    .form-btn {
+      padding: 12px 20px;
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+    .form-btn:hover {
+      background: #5a4ad4;
+    }
+
+    /* ===== PROFILE ===== */
+    .profile-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .profile-avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 24px;
+      color: white;
+      margin: 0 auto 16px;
+    }
+    .profile-name {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .profile-handle {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    .profile-stats {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .stat {
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--accent);
+    }
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .settings-list {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .settings-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .settings-item:last-child {
+      border-bottom: none;
+    }
+    .settings-item:hover {
+      background: var(--elevated);
+    }
+    .settings-icon {
+      font-size: 18px;
+    }
+    .settings-label {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .settings-arrow {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .settings-item.danger {
+      color: var(--danger);
+    }
+
+    /* Section headers */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 800;
+    }
+    .section-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Error toast */
+    .toast {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--card);
+      border: 1px solid rgba(248,113,113,0.3);
+      border-radius: 12px;
+      padding: 12px 20px;
+      color: var(--danger);
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 300;
+      display: none;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .toast.success {
+      border-color: rgba(52,211,153,0.3);
+      color: var(--success);
+    }
   </style>
 </head>
 <body>
+  <div id="toast" class="toast"></div>
+
   <div class="header">
-    <h1 class="header-title">Whispr</h1>
+    <h1 class="header-title" id="headerTitle">Whispr</h1>
     <div class="header-actions">
       <button class="icon-btn" onclick="logout()">🚪</button>
     </div>
   </div>
-  
-  <div class="tabs">
-    <button class="tab active">🔥 Hot</button>
-    <button class="tab">Global</button>
-    <button class="tab">Nearby</button>
-    <button class="tab">Confessions</button>
-  </div>
-  
-  <div class="feed" id="feed">
-    <!-- Create Post -->
-    <div class="create-post">
-      <textarea class="create-input" id="postContent" placeholder="What's on your mind?"></textarea>
-      <div class="create-actions">
-        <div class="create-options">
-          <button class="create-opt">📷</button>
-          <button class="create-opt">🎤</button>
-          <button class="create-opt">📊</button>
+
+  <!-- ===== HOME PAGE ===== -->
+  <div class="page-section active" id="page-home">
+    <div class="tabs">
+      <button class="tab active">🔥 Hot</button>
+      <button class="tab">Global</button>
+      <button class="tab">Nearby</button>
+      <button class="tab">Confessions</button>
+    </div>
+    <div class="feed" style="padding:0;">
+      <div class="create-post">
+        <textarea class="create-input" id="postContent" placeholder="What's on your mind?"></textarea>
+        <div class="create-actions">
+          <div class="create-options">
+            <button class="create-opt">📷</button>
+            <button class="create-opt">🎤</button>
+            <button class="create-opt">📊</button>
+          </div>
+          <button class="create-btn" onclick="createPost()">Post</button>
         </div>
-        <button class="create-btn" onclick="createPost()">Post</button>
+      </div>
+      <div id="postsContainer">
+        <div class="loading">Loading posts...</div>
       </div>
     </div>
-    
-    <div id="postsContainer">
-      <div class="loading">Loading posts...</div>
+  </div>
+
+  <!-- ===== CHATS PAGE ===== -->
+  <div class="page-section" id="page-chats">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Messages</div>
+        <div class="section-subtitle">Your conversations</div>
+      </div>
+    </div>
+    <div id="chatsContainer">
+      <div class="loading">Loading chats...</div>
     </div>
   </div>
-  
+
+  <!-- ===== LINKS PAGE ===== -->
+  <div class="page-section" id="page-links">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Links</div>
+        <div class="section-subtitle">Your saved links</div>
+      </div>
+    </div>
+    <div class="create-link">
+      <h3>Add New Link</h3>
+      <div class="input-row">
+        <input type="text" class="form-input" id="linkTitle" placeholder="Title">
+        <input type="text" class="form-input" id="linkUrl" placeholder="URL (https://...)">
+      </div>
+      <button class="form-btn" onclick="addLink()" style="width:100%;margin-top:4px;">Save Link</button>
+    </div>
+    <div id="linksContainer">
+      <div class="loading">Loading links...</div>
+    </div>
+  </div>
+
+  <!-- ===== PROFILE PAGE ===== -->
+  <div class="page-section" id="page-profile">
+    <div class="profile-card">
+      <div class="profile-avatar" id="profileAvatar">--</div>
+      <div class="profile-name" id="profileName">Loading...</div>
+      <div class="profile-handle" id="profileHandle">@user</div>
+      <div class="profile-stats">
+        <div class="stat">
+          <div class="stat-value" id="profileKarma">0</div>
+          <div class="stat-label">Karma</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="profilePosts">0</div>
+          <div class="stat-label">Posts</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin-top:8px;">
+      <div class="section-title">Settings</div>
+    </div>
+    <div class="settings-list">
+      <div class="settings-item" onclick="loadAccounts()">
+        <span class="settings-icon">👥</span>
+        <span class="settings-label">Connected Accounts</span>
+        <span class="settings-arrow">›</span>
+      </div>
+      <div class="settings-item">
+        <span class="settings-icon">🔔</span>
+        <span class="settings-label">Notifications</span>
+        <span class="settings-arrow">›</span>
+      </div>
+      <div class="settings-item">
+        <span class="settings-icon">🔒</span>
+        <span class="settings-label">Privacy</span>
+        <span class="settings-arrow">›</span>
+      </div>
+      <div class="settings-item">
+        <span class="settings-icon">🎨</span>
+        <span class="settings-label">Appearance</span>
+        <span class="settings-arrow">›</span>
+      </div>
+      <div class="settings-item danger" onclick="logout()">
+        <span class="settings-icon">🚪</span>
+        <span class="settings-label">Logout</span>
+        <span class="settings-arrow">›</span>
+      </div>
+    </div>
+
+    <!-- Accounts subsection -->
+    <div id="accountsSection" style="display:none;margin-top:16px;">
+      <div class="section-header">
+        <div class="section-title">Connected Accounts</div>
+        <button class="icon-btn" onclick="document.getElementById('accountsSection').style.display='none'" style="width:32px;height:32px;font-size:14px;">✕</button>
+      </div>
+      <div id="accountsContainer">
+        <div class="loading">Loading accounts...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== BOTTOM NAV ===== -->
   <div class="bottom-nav">
-    <div class="nav-item active">
+    <div class="nav-item active" onclick="navigateTo('home')" data-page="home">
       <span class="nav-icon">🏠</span>
       <span>Home</span>
     </div>
-    <div class="nav-item">
-      <span class="nav-icon">🔍</span>
-      <span>Search</span>
-    </div>
-    <div class="nav-item">
+    <div class="nav-item" onclick="navigateTo('chats')" data-page="chats">
       <span class="nav-icon">💬</span>
-      <span>Chats</span>
+      <span>Chat</span>
     </div>
-    <div class="nav-item">
+    <div class="nav-item" onclick="navigateTo('links')" data-page="links">
+      <span class="nav-icon">🔗</span>
+      <span>Links</span>
+    </div>
+    <div class="nav-item" onclick="navigateTo('profile')" data-page="profile">
       <span class="nav-icon">👤</span>
       <span>Profile</span>
     </div>
@@ -347,31 +758,61 @@
   <script>
     const API = window.location.origin + '/api';
     const token = localStorage.getItem('token');
-    
+
     if (!token) {
       window.location.href = '/';
     }
-    
+
     const headers = {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     };
-    
-    // Avatar colors
+
+    // ===== Navigation =====
+    let currentPage = 'home';
+
+    function navigateTo(page) {
+      currentPage = page;
+      // Hide all sections
+      document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+      document.getElementById(`page-${page}`).classList.add('active');
+      // Update nav
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
+      // Update header title
+      const titles = { home: 'Whispr', chats: 'Chat', links: 'Links', profile: 'Profile' };
+      document.getElementById('headerTitle').textContent = titles[page] || 'Whispr';
+      // Load data for the page
+      if (page === 'chats') loadChats();
+      if (page === 'links') loadLinks();
+      if (page === 'profile') loadProfile();
+    }
+
+    // ===== Toast =====
+    function showToast(msg, isError = true) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = isError ? 'toast' : 'toast success';
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 3000);
+    }
+
+    // ===== Avatar helpers =====
     const colors = ['#6C5CE7', '#e879a8', '#34d399', '#fb923c', '#60a5fa'];
-    
+
     function getAvatarColor(seed) {
       let hash = 0;
-      for (let i = 0; i < seed.length; i++) {
-        hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+      const s = String(seed);
+      for (let i = 0; i < s.length; i++) {
+        hash = s.charCodeAt(i) + ((hash << 5) - hash);
       }
       return colors[Math.abs(hash) % colors.length];
     }
-    
-    function getInitials(username) {
-      return username.slice(0, 2).toUpperCase();
+
+    function getInitials(name) {
+      return (name || '?').slice(0, 2).toUpperCase();
     }
-    
+
     function timeAgo(date) {
       const seconds = Math.floor((new Date() - new Date(date)) / 1000);
       if (seconds < 60) return 'just now';
@@ -379,53 +820,46 @@
       if (seconds < 86400) return `${Math.floor(seconds/3600)}h`;
       return `${Math.floor(seconds/86400)}d`;
     }
-    
+
+    // ===== POSTS =====
     async function loadPosts() {
       try {
         const res = await fetch(`${API}/posts`, { headers });
+        if (!res.ok) throw new Error('Failed to load');
         const posts = await res.json();
-        
         const container = document.getElementById('postsContainer');
-        
-        if (posts.length === 0) {
+
+        if (!posts || posts.length === 0) {
           container.innerHTML = `
             <div class="empty">
               <h3>No posts yet</h3>
               <p>Be the first to share something anonymously!</p>
-            </div>
-          `;
+            </div>`;
           return;
         }
-        
+
         container.innerHTML = posts.map(post => `
           <div class="feed-card">
             <div class="card-top">
-              <div class="avatar" style="background: ${getAvatarColor(post.author.avatar_seed)}">
-                ${getInitials(post.author.username)}
+              <div class="avatar" style="background: ${getAvatarColor(post.author?.avatar_seed || post.author?.username || '')}">
+                ${getInitials(post.author?.username || 'U')}
               </div>
               <div class="card-user">
-                <div class="card-username">${post.author.username}</div>
-                <div class="card-meta">${timeAgo(post.created_at)} · ${post.author.karma_level}</div>
+                <div class="card-username">${post.author?.username || 'Anonymous'}</div>
+                <div class="card-meta">${timeAgo(post.created_at)} · ${post.author?.karma_level || ''}</div>
               </div>
             </div>
             <div class="card-content">
-              <div class="card-text">${post.content}</div>
-              ${post.tags.length > 0 ? `
+              <div class="card-text">${escapeHtml(post.content)}</div>
+              ${post.tags && post.tags.length > 0 ? `
                 <div class="card-tags">
-                  ${post.tags.map(tag => `<span class="tag">#${tag}</span>`).join('')}
-                </div>
-              ` : ''}
+                  ${post.tags.map(tag => `<span class="tag">#${escapeHtml(tag)}</span>`).join('')}
+                </div>` : ''}
             </div>
             <div class="card-actions">
-              <button class="action-btn primary" onclick="replyTo(${post.id})">
-                💬 Reply
-              </button>
-              <button class="action-btn" onclick="upvote(${post.id})">
-                ❤️ ${post.upvotes}
-              </button>
-              <button class="action-btn">
-                🔗
-              </button>
+              <button class="action-btn primary" onclick="replyTo(${post.id})">💬 Reply</button>
+              <button class="action-btn" onclick="upvote(${post.id})">❤️ ${post.upvotes || 0}</button>
+              <button class="action-btn">🔗</button>
             </div>
           </div>
         `).join('');
@@ -433,50 +867,224 @@
         console.error('Failed to load posts:', err);
       }
     }
-    
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
     async function createPost() {
       const content = document.getElementById('postContent').value.trim();
       if (!content) return;
-      
       try {
         const res = await fetch(`${API}/posts`, {
           method: 'POST',
           headers,
           body: JSON.stringify({ content, tags: [] })
         });
-        
         if (res.ok) {
           document.getElementById('postContent').value = '';
           loadPosts();
+          showToast('Post created!', false);
+        } else {
+          showToast('Failed to create post');
         }
       } catch (err) {
-        console.error('Failed to create post:', err);
+        showToast('Network error');
       }
     }
-    
+
     async function upvote(postId) {
       try {
-        await fetch(`${API}/posts/${postId}/upvote`, {
-          method: 'POST',
-          headers
-        });
+        await fetch(`${API}/posts/${postId}/upvote`, { method: 'POST', headers });
         loadPosts();
       } catch (err) {
         console.error('Failed to upvote:', err);
       }
     }
-    
+
     function replyTo(postId) {
-      // TODO: Open reply modal
       alert('Reply feature coming soon!');
     }
-    
+
+    // ===== CHATS =====
+    async function loadChats() {
+      const container = document.getElementById('chatsContainer');
+      try {
+        const res = await fetch(`${API}/chats`, { headers });
+        if (!res.ok) throw new Error('Failed to load');
+        const chats = await res.json();
+
+        if (!chats || chats.length === 0) {
+          container.innerHTML = `
+            <div class="empty">
+              <h3>No conversations yet</h3>
+              <p>Start a chat from a post reply!</p>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = chats.map(chat => {
+          const otherUser = chat.participants?.find(p => p.username !== (chat.current_user || '')) || {};
+          return `
+            <div class="chat-item" onclick="openChat(${chat.id})">
+              <div class="chat-avatar" style="background: ${getAvatarColor(otherUser.avatar_seed || otherUser.username || '')}">
+                ${getInitials(otherUser.username || '?')}
+              </div>
+              <div class="chat-info">
+                <div class="chat-name">${otherUser.username || 'Unknown'}</div>
+                <div class="chat-preview">${escapeHtml(chat.last_message || 'No messages yet')}</div>
+              </div>
+              <div style="text-align:right;">
+                <div class="chat-time">${chat.updated_at ? timeAgo(chat.updated_at) : ''}</div>
+                ${chat.unread_count > 0 ? `<div class="chat-badge">${chat.unread_count}</div>` : ''}
+              </div>
+            </div>`;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="empty"><h3>Failed to load chats</h3><p>${err.message}</p></div>`;
+      }
+    }
+
+    function openChat(chatId) {
+      alert(`Chat #${chatId} — detail view coming soon!`);
+    }
+
+    // ===== LINKS =====
+    async function loadLinks() {
+      const container = document.getElementById('linksContainer');
+      try {
+        const res = await fetch(`${API}/links`, { headers });
+        if (!res.ok) throw new Error('Failed to load');
+        const links = await res.json();
+
+        if (!links || links.length === 0) {
+          container.innerHTML = `
+            <div class="empty">
+              <h3>No saved links</h3>
+              <p>Add a link above to save it!</p>
+            </div>`;
+          return;
+        }
+
+        const iconColors = ['#6C5CE7', '#e879a8', '#34d399', '#fb923c', '#60a5fa'];
+        container.innerHTML = links.map((link, i) => `
+          <div class="link-item">
+            <div class="link-icon" style="background: ${iconColors[i % iconColors.length]}20; color: ${iconColors[i % iconColors.length]};">🔗</div>
+            <div class="link-info">
+              <div class="link-title">${escapeHtml(link.title || 'Untitled')}</div>
+              <div class="link-url">${escapeHtml(link.url || '')}</div>
+            </div>
+            <button class="link-delete" onclick="deleteLink(${link.id})" title="Delete">🗑️</button>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="empty"><h3>Failed to load links</h3></div>`;
+      }
+    }
+
+    async function addLink() {
+      const title = document.getElementById('linkTitle').value.trim();
+      const url = document.getElementById('linkUrl').value.trim();
+      if (!title || !url) {
+        showToast('Please enter both title and URL');
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/links`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ title, url })
+        });
+        if (res.ok) {
+          document.getElementById('linkTitle').value = '';
+          document.getElementById('linkUrl').value = '';
+          loadLinks();
+          showToast('Link saved!', false);
+        } else {
+          const data = await res.json();
+          showToast(data.detail || 'Failed to save link');
+        }
+      } catch (err) {
+        showToast('Network error');
+      }
+    }
+
+    async function deleteLink(linkId) {
+      if (!confirm('Delete this link?')) return;
+      try {
+        await fetch(`${API}/links/${linkId}`, { method: 'DELETE', headers });
+        loadLinks();
+      } catch (err) {
+        showToast('Failed to delete link');
+      }
+    }
+
+    // ===== PROFILE =====
+    async function loadProfile() {
+      try {
+        const res = await fetch(`${API}/me`, { headers });
+        if (!res.ok) throw new Error('Failed to load');
+        const me = await res.json();
+
+        document.getElementById('profileName').textContent = me.username || 'User';
+        document.getElementById('profileHandle').textContent = `@${me.username || 'user'} · ${me.karma_level || ''}`;
+        document.getElementById('profileKarma').textContent = me.karma || me.karma_level || 0;
+        document.getElementById('profilePosts').textContent = me.post_count || 0;
+
+        const avatar = document.getElementById('profileAvatar');
+        avatar.style.background = `linear-gradient(135deg, ${getAvatarColor(me.username)}, ${getAvatarColor(me.username + '2')})`;
+        avatar.textContent = getInitials(me.username);
+      } catch (err) {
+        document.getElementById('profileName').textContent = 'Error loading profile';
+      }
+    }
+
+    // ===== ACCOUNTS =====
+    async function loadAccounts() {
+      const section = document.getElementById('accountsSection');
+      const container = document.getElementById('accountsContainer');
+      section.style.display = 'block';
+      container.innerHTML = '<div class="loading">Loading accounts...</div>';
+
+      try {
+        const res = await fetch(`${API}/accounts`, { headers });
+        if (!res.ok) throw new Error('Failed to load');
+        const accounts = await res.json();
+
+        if (!accounts || accounts.length === 0) {
+          container.innerHTML = `
+            <div class="empty" style="padding:30px 20px;">
+              <h3>No connected accounts</h3>
+            </div>`;
+          return;
+        }
+
+        const providerIcons = { telegram: '✈️', discord: '🎮', twitter: '🐦', email: '📧' };
+        container.innerHTML = accounts.map(acc => `
+          <div class="link-item">
+            <div class="link-icon" style="background: var(--accent-soft);">
+              ${providerIcons[acc.provider] || '🔗'}
+            </div>
+            <div class="link-info">
+              <div class="link-title">${escapeHtml(acc.provider || 'Account')}</div>
+              <div class="link-url">${escapeHtml(acc.username || acc.email || acc.provider_id || 'Connected')}</div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="empty" style="padding:30px 20px;"><h3>Failed to load accounts</h3></div>`;
+      }
+    }
+
+    // ===== Logout =====
     function logout() {
       localStorage.removeItem('token');
       window.location.href = '/';
     }
-    
-    // Load posts on page load
+
+    // ===== Init =====
     loadPosts();
   </script>
 </body>

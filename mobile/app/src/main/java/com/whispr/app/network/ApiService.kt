@@ -1,92 +1,101 @@
 package com.whispr.app.network
 
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
+import com.whispr.app.data.*
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
+import retrofit2.Response
 import retrofit2.http.*
 
-// Data classes
-data class UserCreate(
-    val username: String,
-    val password: String,
-    val email: String? = null
-)
+interface ApiService {
+    // Auth
+    @POST("api/auth/register")
+    suspend fun register(@Body request: RegisterRequest): Response<AuthResponse>
 
-data class TokenResponse(
-    val access_token: String,
-    val token_type: String
-)
+    @POST("api/auth/login")
+    suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
 
-data class UserResponse(
-    val id: Int,
-    val username: String,
-    val karma: Int,
-    val karma_level: String,
-    val avatar_seed: String,
-    val created_at: String
-)
+    @GET("api/me")
+    suspend fun getMe(): Response<User>
 
-data class PostCreate(
-    val content: String,
-    val post_type: String = "post",
-    val tags: List<String> = emptyList()
-)
+    @PUT("api/me")
+    suspend fun updateProfile(@Body profile: ProfileUpdate): Response<User>
 
-data class PostResponse(
-    val id: Int,
-    val content: String,
-    val post_type: String,
-    val upvotes: Int,
-    val downvotes: Int,
-    val comment_count: Int,
-    val author: UserResponse,
-    val tags: List<String>,
-    val created_at: String
-)
+    // Posts
+    @GET("api/posts")
+    suspend fun getPosts(@Query("tag") tag: String? = null): Response<List<Post>>
 
-// API Interface
-interface WhisprApi {
-    @POST("auth/register")
-    suspend fun register(@Body user: UserCreate): TokenResponse
+    @POST("api/posts")
+    suspend fun createPost(@Body request: CreatePostRequest): Response<Post>
 
-    @FormUrlEncoded
-    @POST("token")
-    suspend fun login(
-        @Field("username") username: String,
-        @Field("password") password: String
-    ): TokenResponse
+    @PUT("api/posts/{id}")
+    suspend fun updatePost(@Path("id") id: Int, @Body body: RequestBody): Response<Post>
 
-    @GET("auth/me")
-    suspend fun getMe(@Header("Authorization") token: String): UserResponse
+    @DELETE("api/posts/{id}")
+    suspend fun deletePost(@Path("id") id: Int): Response<Unit>
 
-    @POST("posts")
-    suspend fun createPost(
-        @Header("Authorization") token: String,
-        @Body post: PostCreate
-    ): PostResponse
+    @POST("api/posts/{id}/upvote")
+    suspend fun upvotePost(@Path("id") id: Int): Response<Unit>
 
-    @GET("posts")
-    suspend fun getPosts(
-        @Header("Authorization") token: String,
-        @Query("skip") skip: Int = 0,
-        @Query("limit") limit: Int = 20
-    ): List<PostResponse>
+    @GET("api/posts/{id}/view-once")
+    suspend fun viewOncePost(@Path("id") id: Int): Response<Post>
 
-    @POST("posts/{id}/upvote")
-    suspend fun upvotePost(
-        @Header("Authorization") token: String,
-        @Path("id") postId: Int
-    ): Map<String, String>
-}
+    // Upload
+    @Multipart
+    @POST("api/upload/voice")
+    suspend fun uploadVoice(@Part file: MultipartBody.Part): Response<Map<String, String>>
 
-// API Client
-object ApiClient {
-    // Change this to your server URL
-    const val BASE_URL = "http://43.153.207.36:8080/"
+    @Multipart
+    @POST("api/upload/photo")
+    suspend fun uploadPhoto(@Part file: MultipartBody.Part): Response<Map<String, String>>
 
-    private val retrofit: Retrofit = Retrofit.Builder()
-        .baseUrl(BASE_URL)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
+    // Chats
+    @GET("api/chats")
+    suspend fun getChats(): Response<List<Chat>>
 
-    val api: WhisprApi = retrofit.create(WhisprApi::class.java)
+    @POST("api/chats")
+    suspend fun createChat(@Body body: Map<String, Int>): Response<Chat>
+
+    @GET("api/chats/{id}/messages")
+    suspend fun getMessages(@Path("id") chatId: Int): Response<List<ChatMessage>>
+
+    // Links
+    @POST("api/links")
+    suspend fun createLink(@Body request: CreateLinkRequest): Response<ShareableLink>
+
+    @GET("api/links")
+    suspend fun getLinks(): Response<List<ShareableLink>>
+
+    @POST("api/links/{code}/message")
+    suspend fun sendLinkMessage(@Path("code") code: String, @Body msg: LinkMessage): Response<Unit>
+
+    // Accounts
+    @GET("api/accounts")
+    suspend fun getAccounts(): Response<List<Account>>
+
+    @POST("api/accounts")
+    suspend fun createAccount(@Body request: CreateAccountRequest): Response<AuthResponse>
+
+    // Block
+    @POST("api/block/{id}")
+    suspend fun blockUser(@Path("id") userId: Int): Response<Unit>
+
+    @DELETE("api/block/{id}")
+    suspend fun unblockUser(@Path("id") userId: Int): Response<Unit>
+
+    @GET("api/blocks")
+    suspend fun getBlocks(): Response<List<BlockedUser>>
+
+    // GIF
+    @GET("api/gif/search")
+    suspend fun searchGifs(@Query("q") query: String): Response<List<GifResult>>
+
+    // Call
+    @POST("api/call/start")
+    suspend fun startCall(@Body body: Map<String, Int>): Response<CallSession>
+
+    @POST("api/call/{id}/answer")
+    suspend fun answerCall(@Path("id") callId: Int): Response<Unit>
+
+    @POST("api/call/{id}/end")
+    suspend fun endCall(@Path("id") callId: Int): Response<Unit>
 }

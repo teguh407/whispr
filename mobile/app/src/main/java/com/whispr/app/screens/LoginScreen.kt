@@ -1,9 +1,15 @@
 package com.whispr.app.screens
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,203 +20,154 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.whispr.app.network.ApiClient
-import com.whispr.app.network.UserCreate
 import com.whispr.app.ui.theme.*
-import kotlinx.coroutines.launch
+import com.whispr.app.viewmodel.WhisprViewModel
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (String) -> Unit,
-    onNavigateToRegister: () -> Unit
+    viewModel: WhisprViewModel,
+    onLoginSuccess: () -> Unit,
+    onGoToRegister: () -> Unit,
+    onSettings: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var isLoginMode by remember { mutableStateOf(true) }
-    
-    val scope = rememberCoroutineScope()
+    var showPassword by remember { mutableStateOf(false) }
+    val isLoading by viewModel.loading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
 
-    Box(
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) onLoginSuccess()
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Background)
-            .padding(24.dp)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Background, Surface)
+                )
+            )
+            .verticalScroll(rememberScrollState())
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Logo
-            Text(
-                text = "Whispr",
-                fontSize = 36.sp,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            
-            Text(
-                text = "Anonymous conversations, reimagined",
-                color = Muted,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(bottom = 40.dp)
-            )
+        // Logo area
+        Icon(
+            Icons.Default.Lock,
+            contentDescription = "Whispr",
+            tint = PrimaryPurple,
+            modifier = Modifier.size(72.dp)
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Whispr",
+            fontSize = 36.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary
+        )
+        Text(
+            "Anonymous. Real. You.",
+            fontSize = 14.sp,
+            color = TextSecondary
+        )
+        Spacer(Modifier.height(48.dp))
 
-            // Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Surface),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Tabs
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Background)
-                            .padding(4.dp)
-                    ) {
-                        TabButton(
-                            text = "Login",
-                            isSelected = isLoginMode,
-                            modifier = Modifier.weight(1f)
-                        ) { isLoginMode = true }
-                        
-                        TabButton(
-                            text = "Register",
-                            isSelected = !isLoginMode,
-                            modifier = Modifier.weight(1f)
-                        ) { isLoginMode = false }
-                    }
+        // Username
+        OutlinedTextField(
+            value = username,
+            onValueChange = { username = it },
+            label = { Text("Username") },
+            leadingIcon = { Icon(Icons.Default.Person, null) },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PrimaryPurple,
+                unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f),
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = CardBg,
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary
+            ),
+            singleLine = true
+        )
+        Spacer(Modifier.height(12.dp))
 
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Error message
-                    error?.let {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = Red.copy(alpha = 0.1f)
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = it,
-                                color = Red,
-                                modifier = Modifier.padding(12.dp),
-                                fontSize = 13.sp
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-
-                    // Username field
-                    OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
-                        label = { Text("Username") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Accent,
-                            unfocusedBorderColor = Color(0xFF2a2a3a),
-                            focusedContainerColor = Background,
-                            unfocusedContainerColor = Background
-                        )
+        // Password
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Password") },
+            leadingIcon = { Icon(Icons.Default.Lock, null) },
+            trailingIcon = {
+                IconButton(onClick = { showPassword = !showPassword }) {
+                    Icon(
+                        if (showPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        null
                     )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Password field
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text("Password") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Accent,
-                            unfocusedBorderColor = Color(0xFF2a2a3a),
-                            focusedContainerColor = Background,
-                            unfocusedContainerColor = Background
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Submit button
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                isLoading = true
-                                error = null
-                                try {
-                                    val token = if (isLoginMode) {
-                                        ApiClient.api.login(username, password).access_token
-                                    } else {
-                                        ApiClient.api.register(UserCreate(username, password)).access_token
-                                    }
-                                    onLoginSuccess(token)
-                                } catch (e: Exception) {
-                                    error = e.message ?: "An error occurred"
-                                }
-                                isLoading = false
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Accent
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        enabled = !isLoading && username.isNotBlank() && password.isNotBlank()
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(
-                                text = if (isLoginMode) "Login" else "Create Account",
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
                 }
+            },
+            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PrimaryPurple,
+                unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f),
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = CardBg,
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary
+            ),
+            singleLine = true
+        )
+        Spacer(Modifier.height(24.dp))
+
+        // Login Button
+        Button(
+            onClick = { viewModel.login(username, password) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp),
+            enabled = !isLoading && username.isNotBlank() && password.isNotBlank(),
+            colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+            } else {
+                Text("Login", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
-    }
-}
+        Spacer(Modifier.height(16.dp))
 
-@Composable
-fun TabButton(
-    text: String,
-    isSelected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (isSelected) Accent else Color.Transparent,
-            contentColor = if (isSelected) Color.White else Muted
-        ),
-        shape = RoundedCornerShape(8.dp),
-        elevation = null
-    ) {
-        Text(text = text, fontWeight = FontWeight.SemiBold)
+        // Error
+        error?.let {
+            Text(it, color = ErrorRed, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(8.dp))
+        }
+
+        // Register link
+        Text(
+            "Don't have an account? Register",
+            color = PrimaryPink,
+            modifier = Modifier.clickable { onGoToRegister() }
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        // Settings
+        Text(
+            "⚙ Server Settings",
+            color = TextSecondary,
+            fontSize = 12.sp,
+            modifier = Modifier.clickable { onSettings() }
+        )
     }
 }
