@@ -89,7 +89,7 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(32.dp))
-            HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
+            Divider(color = TextSecondary.copy(alpha = 0.2f))
             Spacer(Modifier.height(24.dp))
 
             Text("About", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)

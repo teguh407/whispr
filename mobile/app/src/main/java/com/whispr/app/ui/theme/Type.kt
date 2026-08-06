@@ -5,18 +5,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Typography
 
+import androidx.compose.ui.text.TextStyle
+
 val Typography = Typography(
-    displayLarge = FontFamily.Default,
-    headlineLarge = FontFamily.Default.copy(fontWeight = FontWeight.Bold),
-    headlineMedium = FontFamily.Default.copy(fontWeight = FontWeight.SemiBold),
-    headlineSmall = FontFamily.Default.copy(fontWeight = FontWeight.Medium),
-    titleLarge = FontFamily.Default.copy(fontWeight = FontWeight.Bold, fontSize = 22.sp),
-    titleMedium = FontFamily.Default.copy(fontWeight = FontWeight.SemiBold, fontSize = 16.sp),
-    titleSmall = FontFamily.Default.copy(fontWeight = FontWeight.Medium, fontSize = 14.sp),
-    bodyLarge = FontFamily.Default.copy(fontWeight = FontWeight.Normal, fontSize = 16.sp),
-    bodyMedium = FontFamily.Default.copy(fontWeight = FontWeight.Normal, fontSize = 14.sp),
-    bodySmall = FontFamily.Default.copy(fontWeight = FontWeight.Normal, fontSize = 12.sp),
-    labelLarge = FontFamily.Default.copy(fontWeight = FontWeight.Medium, fontSize = 14.sp),
-    labelMedium = FontFamily.Default.copy(fontWeight = FontWeight.Medium, fontSize = 12.sp),
-    labelSmall = FontFamily.Default.copy(fontWeight = FontWeight.Medium, fontSize = 10.sp)
+    displayLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 57.sp),
+    headlineLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 32.sp),
+    headlineMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 28.sp),
+    headlineSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 24.sp),
+    titleLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 22.sp),
+    titleMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 16.sp),
+    titleSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 14.sp),
+    bodyLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 16.sp),
+    bodyMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 14.sp),
+    bodySmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 12.sp),
+    labelLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 14.sp),
+    labelMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 12.sp),
+    labelSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 10.sp)
 )

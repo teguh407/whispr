@@ -18,7 +18,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 
 class WhisprViewModel(application: Application) : AndroidViewModel(application) {
-    private val ctx get() = application
+    private fun ctx() = getApplication<Application>()
 
     // Auth state
     private val _currentUser = MutableStateFlow<User?>(null)
@@ -67,16 +67,16 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         viewModelScope.launch {
-            val savedUrl = TokenStore.getBaseUrl(ctx)
+            val savedUrl = TokenStore.getBaseUrl(ctx())
             if (savedUrl != null) ApiClient.setBaseUrl(savedUrl)
-            val token = TokenStore.getToken(ctx)
+            val token = TokenStore.getToken(ctx())
             if (token != null) {
                 ApiClient.setToken(token)
                 try {
                     _currentUser.value = ApiClient.api.getMe().body()
                     _isLoggedIn.value = true
                 } catch (e: Exception) {
-                    TokenStore.clearToken(ctx)
+                    TokenStore.clearToken(ctx())
                 }
             }
         }
@@ -95,7 +95,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
             val resp = ApiClient.api.login(LoginRequest(username, password))
             if (resp.isSuccessful) {
                 resp.body()?.let {
-                    TokenStore.saveToken(ctx, it.token)
+                    TokenStore.saveToken(ctx(), it.token)
                     ApiClient.setToken(it.token)
                     _currentUser.value = it.user ?: ApiClient.api.getMe().body()
                     _isLoggedIn.value = true
@@ -113,7 +113,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
             val resp = ApiClient.api.register(RegisterRequest(username, password, displayName))
             if (resp.isSuccessful) {
                 resp.body()?.let {
-                    TokenStore.saveToken(ctx, it.token)
+                    TokenStore.saveToken(ctx(), it.token)
                     ApiClient.setToken(it.token)
                     _currentUser.value = it.user ?: ApiClient.api.getMe().body()
                     _isLoggedIn.value = true
@@ -126,7 +126,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun logout() = viewModelScope.launch {
-        TokenStore.clearToken(ctx)
+        TokenStore.clearToken(ctx())
         ApiClient.setToken(null)
         _currentUser.value = null
         _isLoggedIn.value = false
@@ -134,7 +134,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setBaseUrl(url: String) = viewModelScope.launch {
         ApiClient.setBaseUrl(url)
-        TokenStore.saveBaseUrl(ctx, url)
+        TokenStore.saveBaseUrl(ctx(), url)
     }
 
     // Profile
@@ -253,7 +253,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
             val resp = ApiClient.api.createAccount(CreateAccountRequest(username, password, displayName))
             if (resp.isSuccessful) {
                 resp.body()?.let {
-                    TokenStore.saveToken(ctx, it.token)
+                    TokenStore.saveToken(ctx(), it.token)
                     ApiClient.setToken(it.token)
                     _currentUser.value = it.user
                 }

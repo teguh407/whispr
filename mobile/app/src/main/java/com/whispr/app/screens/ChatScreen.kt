@@ -49,6 +49,7 @@ fun ChatScreen(
     onCall: () -> Unit
 ) {
     val messages by viewModel.messages.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val context = LocalContext.current
@@ -126,7 +127,7 @@ fun ChatScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(messages) { msg ->
-                    val isMe = msg.senderId == (viewModel.currentUser.collectAsState().value?.id ?: 0)
+                    val isMe = msg.senderId == (currentUser?.id ?: 0)
                     MessageBubble(msg, isMe)
                 }
             }
@@ -201,7 +202,7 @@ fun ChatScreen(
                         ws?.send(Gson().toJson(wsMsg))
                         viewModel.addMessage(
                             ChatMessage(
-                                senderId = viewModel.currentUser.collectAsState().value?.id ?: 0,
+                                senderId = currentUser?.id ?: 0,
                                 content = inputText,
                                 type = "text"
                             )
