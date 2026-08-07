@@ -45,6 +45,8 @@ data class Post(
     @SerializedName("user_upvoted") val isUpvoted: Boolean = false,
     @SerializedName("bg_type") val bgType: String = "none",
     @SerializedName("bg_value") val bgValue: String? = null,
+    @SerializedName("post_type") val postType: String = "anonymous",
+    val mood: String? = null,
     @SerializedName("is_mine") val isMine: Boolean = false,
     val author: User? = null,
     @SerializedName("created_at") val createdAt: String? = null,
@@ -60,7 +62,9 @@ data class CreatePostRequest(
     val tags: List<String> = emptyList(),
     @SerializedName("once_view") val onceView: Boolean = false,
     @SerializedName("bg_type") val bgType: String = "none",
-    @SerializedName("bg_value") val bgValue: String? = null
+    @SerializedName("bg_value") val bgValue: String? = null,
+    @SerializedName("post_type") val postType: String = "anonymous",
+    val mood: String? = null
 )
 
 // Chat

@@ -98,6 +98,11 @@ async def init_db():
             ALTER TABLE posts ADD COLUMN IF NOT EXISTS bg_type VARCHAR(20) DEFAULT 'none';
             ALTER TABLE posts ADD COLUMN IF NOT EXISTS bg_value TEXT;
         """)
+        # Post type + mood (idempotent for existing DBs)
+        await conn.execute("""
+            ALTER TABLE posts ADD COLUMN IF NOT EXISTS post_type VARCHAR(20) DEFAULT 'anonymous';
+            ALTER TABLE posts ADD COLUMN IF NOT EXISTS mood VARCHAR(20);
+        """)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS post_tags (
                 post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
@@ -340,17 +345,24 @@ class CreatePostReq(BaseModel):
     is_once_view: bool = False
     bg_type: str = "none"          # none | gradient
     bg_value: Optional[str] = None # gradient preset id, e.g. "sunset"
+    post_type: str = "anonymous"   # anonymous|question|confession|poll|voice|photo|nearby
+    mood: Optional[str] = None     # Happy|Lonely|Sad|Angry|Excited|Anxious
+
+_POST_TYPES = {"anonymous", "question", "confession", "poll", "voice", "photo", "nearby"}
+_MOODS = {"Happy", "Lonely", "Sad", "Angry", "Excited", "Anxious"}
 
 @app.post("/api/posts")
 async def create_post(req: CreatePostReq, user=Depends(get_current_user)):
     post_id = uuid.uuid4()
     bg_type = req.bg_type if req.bg_type in ("none", "gradient") else "none"
     bg_value = req.bg_value if bg_type == "gradient" else None
+    post_type = req.post_type if req.post_type in _POST_TYPES else "anonymous"
+    mood = req.mood if req.mood in _MOODS else None
     async with db_pool.acquire() as conn:
         await conn.execute(
-            """INSERT INTO posts (id, author_id, content, is_once_view, bg_type, bg_value) 
-               VALUES ($1, $2, $3, $4, $5, $6)""",
-            post_id, user["id"], req.content, req.is_once_view, bg_type, bg_value
+            """INSERT INTO posts (id, author_id, content, is_once_view, bg_type, bg_value, post_type, mood) 
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)""",
+            post_id, user["id"], req.content, req.is_once_view, bg_type, bg_value, post_type, mood
         )
         if req.tags:
             for tag in req.tags[:5]:
@@ -408,6 +420,8 @@ async def list_posts(
         "user_upvoted": r["user_upvoted"],
         "bg_type": r["bg_type"] if "bg_type" in r else "none",
         "bg_value": r["bg_value"] if "bg_value" in r else None,
+        "post_type": r["post_type"] if "post_type" in r else "anonymous",
+        "mood": r["mood"] if "mood" in r else None,
         "is_mine": str(r["author_id"]) == str(user["id"]),
         "author": {"id": str(r["author_id"]), "username": r["username"], "display_name": r["display_name"], "avatar_url": r["avatar_url"]},
         "created_at": r["created_at"].isoformat()

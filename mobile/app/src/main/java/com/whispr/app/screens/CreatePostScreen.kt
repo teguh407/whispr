@@ -71,7 +71,9 @@ fun CreatePostScreen(
                             viewModel.createPost(
                                 content, tagList, onceView,
                                 bgType = if (selectedBg != null) "gradient" else "none",
-                                bgValue = selectedBg
+                                bgValue = selectedBg,
+                                postType = selectedType,
+                                mood = selectedMood
                             )
                             onBack()
                         },
