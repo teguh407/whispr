@@ -28,16 +28,16 @@ interface ApiService {
     suspend fun createPost(@Body request: CreatePostRequest): Response<Post>
 
     @PUT("api/posts/{id}")
-    suspend fun updatePost(@Path("id") id: Int, @Body body: RequestBody): Response<Post>
+    suspend fun updatePost(@Path("id") id: String, @Body body: RequestBody): Response<Post>
 
     @DELETE("api/posts/{id}")
-    suspend fun deletePost(@Path("id") id: Int): Response<Unit>
+    suspend fun deletePost(@Path("id") id: String): Response<Unit>
 
     @POST("api/posts/{id}/upvote")
-    suspend fun upvotePost(@Path("id") id: Int): Response<Unit>
+    suspend fun upvotePost(@Path("id") id: String): Response<Unit>
 
     @GET("api/posts/{id}/view-once")
-    suspend fun viewOncePost(@Path("id") id: Int): Response<Post>
+    suspend fun viewOncePost(@Path("id") id: String): Response<Post>
 
     // Upload
     @Multipart
@@ -56,7 +56,7 @@ interface ApiService {
     suspend fun createChat(@Body body: Map<String, Int>): Response<Chat>
 
     @GET("api/chats/{id}/messages")
-    suspend fun getMessages(@Path("id") chatId: Int): Response<List<ChatMessage>>
+    suspend fun getMessages(@Path("id") chatId: String): Response<List<ChatMessage>>
 
     // Links
     @POST("api/links")
@@ -77,10 +77,10 @@ interface ApiService {
 
     // Block
     @POST("api/block/{id}")
-    suspend fun blockUser(@Path("id") userId: Int): Response<Unit>
+    suspend fun blockUser(@Path("id") userId: String): Response<Unit>
 
     @DELETE("api/block/{id}")
-    suspend fun unblockUser(@Path("id") userId: Int): Response<Unit>
+    suspend fun unblockUser(@Path("id") userId: String): Response<Unit>
 
     @GET("api/blocks")
     suspend fun getBlocks(): Response<List<BlockedUser>>
@@ -94,8 +94,8 @@ interface ApiService {
     suspend fun startCall(@Body body: Map<String, Int>): Response<CallSession>
 
     @POST("api/call/{id}/answer")
-    suspend fun answerCall(@Path("id") callId: Int): Response<Unit>
+    suspend fun answerCall(@Path("id") callId: String): Response<Unit>
 
     @POST("api/call/{id}/end")
-    suspend fun endCall(@Path("id") callId: Int): Response<Unit>
+    suspend fun endCall(@Path("id") callId: String): Response<Unit>
 }

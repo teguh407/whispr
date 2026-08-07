@@ -162,14 +162,14 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { err(e) }
     }
 
-    fun upvotePost(postId: Int) = viewModelScope.launch {
+    fun upvotePost(postId: String) = viewModelScope.launch {
         try {
             ApiClient.api.upvotePost(postId)
             loadPosts()
         } catch (e: Exception) { err(e) }
     }
 
-    fun deletePost(postId: Int) = viewModelScope.launch {
+    fun deletePost(postId: String) = viewModelScope.launch {
         try {
             ApiClient.api.deletePost(postId)
             loadPosts()
@@ -184,14 +184,14 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { err(e) }
     }
 
-    fun createChat(userId: Int) = viewModelScope.launch {
+    fun createChat(userId: String) = viewModelScope.launch {
         try {
             val resp = ApiClient.api.createChat(mapOf("user_id" to userId))
             if (resp.isSuccessful) loadChats()
         } catch (e: Exception) { err(e) }
     }
 
-    fun loadMessages(chatId: Int) = viewModelScope.launch {
+    fun loadMessages(chatId: String) = viewModelScope.launch {
         try {
             val resp = ApiClient.api.getMessages(chatId)
             if (resp.isSuccessful) _messages.value = resp.body() ?: emptyList()
@@ -270,14 +270,14 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { err(e) }
     }
 
-    fun blockUser(userId: Int) = viewModelScope.launch {
+    fun blockUser(userId: String) = viewModelScope.launch {
         try {
             ApiClient.api.blockUser(userId)
             loadBlocks()
         } catch (e: Exception) { err(e) }
     }
 
-    fun unblockUser(userId: Int) = viewModelScope.launch {
+    fun unblockUser(userId: String) = viewModelScope.launch {
         try {
             ApiClient.api.unblockUser(userId)
             loadBlocks()
@@ -293,7 +293,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // Call
-    fun startCall(userId: Int) = viewModelScope.launch {
+    fun startCall(userId: String) = viewModelScope.launch {
         try {
             val resp = ApiClient.api.startCall(mapOf("user_id" to userId))
             if (resp.isSuccessful) _activeCall.value = resp.body()

@@ -42,7 +42,7 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    chatId: Int,
+    chatId: String,
     viewModel: WhisprViewModel,
     onBack: () -> Unit,
     onGifPicker: () -> Unit,
@@ -72,7 +72,7 @@ fun ChatScreen(
                     if (msg.type == "message" && msg.content != null) {
                         viewModel.addMessage(
                             ChatMessage(
-                                senderId = msg.senderId ?: 0,
+                                senderId = msg.senderId ?: "",
                                 content = msg.content,
                                 type = msg.type,
                                 mediaUrl = msg.mediaUrl,
@@ -127,7 +127,7 @@ fun ChatScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(messages) { msg ->
-                    val isMe = msg.senderId == (currentUser?.id ?: 0)
+                    val isMe = msg.senderId == (currentUser?.id ?: "")
                     MessageBubble(msg, isMe)
                 }
             }
@@ -202,7 +202,7 @@ fun ChatScreen(
                         ws?.send(Gson().toJson(wsMsg))
                         viewModel.addMessage(
                             ChatMessage(
-                                senderId = currentUser?.id ?: 0,
+                                senderId = currentUser?.id ?: "",
                                 content = inputText,
                                 type = "text"
                             )

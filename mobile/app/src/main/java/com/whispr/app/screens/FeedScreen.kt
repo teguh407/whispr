@@ -120,7 +120,7 @@ fun FeedScreen(
                             onUpvote = { viewModel.upvotePost(post.id) },
                             onDelete = { viewModel.deletePost(post.id) },
                             onClick = { if (post.hasOnceView) onPostClick(post.id) },
-                            currentUserId = viewModel.currentUser.collectAsState().value?.id ?: 0
+                            currentUserId = viewModel.currentUser.collectAsState().value?.id ?: ""
                         )
                     }
                 }
