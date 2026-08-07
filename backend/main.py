@@ -272,18 +272,15 @@ async def register(req: RegisterReq):
 @app.post("/api/auth/login")
 async def login(req: LoginReq):
     async with db_pool.acquire() as conn:
-        if req.username:
-            user = await conn.fetchrow(
-                "SELECT * FROM users WHERE username = $1 AND is_active = TRUE",
-                req.username.lower()
-            )
-        elif req.email:
-            user = await conn.fetchrow(
-                "SELECT * FROM users WHERE email = $1 AND is_active = TRUE",
-                req.email.lower()
-            )
-        else:
+        # Accept either username or email in whichever field the client sends.
+        # APK sends `email` field which may actually contain a username.
+        ident = (req.username or req.email or "").strip().lower()
+        if not ident:
             raise HTTPException(422, "Provide username or email")
+        user = await conn.fetchrow(
+            "SELECT * FROM users WHERE (email = $1 OR username = $1) AND is_active = TRUE",
+            ident
+        )
         if not user or not bcrypt.checkpw(req.password.encode(), user["password_hash"].encode()):
             raise HTTPException(401, "Invalid credentials")
     token = create_token(str(user["id"]))
