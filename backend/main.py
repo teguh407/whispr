@@ -93,6 +93,11 @@ async def init_db():
                 edited_at TIMESTAMPTZ
             );
         """)
+        # Tier-1 background support (idempotent for existing DBs)
+        await conn.execute("""
+            ALTER TABLE posts ADD COLUMN IF NOT EXISTS bg_type VARCHAR(20) DEFAULT 'none';
+            ALTER TABLE posts ADD COLUMN IF NOT EXISTS bg_value TEXT;
+        """)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS post_tags (
                 post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
@@ -336,15 +341,19 @@ class CreatePostReq(BaseModel):
     content: str = Field(..., min_length=1, max_length=5000)
     tags: Optional[List[str]] = []
     is_once_view: bool = False
+    bg_type: str = "none"          # none | gradient
+    bg_value: Optional[str] = None # gradient preset id, e.g. "sunset"
 
 @app.post("/api/posts")
 async def create_post(req: CreatePostReq, user=Depends(get_current_user)):
     post_id = uuid.uuid4()
+    bg_type = req.bg_type if req.bg_type in ("none", "gradient") else "none"
+    bg_value = req.bg_value if bg_type == "gradient" else None
     async with db_pool.acquire() as conn:
         await conn.execute(
-            """INSERT INTO posts (id, author_id, content, is_once_view) 
-               VALUES ($1, $2, $3, $4)""",
-            post_id, user["id"], req.content, req.is_once_view
+            """INSERT INTO posts (id, author_id, content, is_once_view, bg_type, bg_value) 
+               VALUES ($1, $2, $3, $4, $5, $6)""",
+            post_id, user["id"], req.content, req.is_once_view, bg_type, bg_value
         )
         if req.tags:
             for tag in req.tags[:5]:
@@ -400,6 +409,8 @@ async def list_posts(
         "replies_count": r["replies_count"],
         "is_edited": r["is_edited"],
         "user_upvoted": r["user_upvoted"],
+        "bg_type": r["bg_type"] if "bg_type" in r else "none",
+        "bg_value": r["bg_value"] if "bg_value" in r else None,
         "author": {"username": r["username"], "display_name": r["display_name"], "avatar_url": r["avatar_url"]},
         "created_at": r["created_at"].isoformat()
     } for r in rows]

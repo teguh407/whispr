@@ -155,9 +155,10 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         _loading.value = false
     }
 
-    fun createPost(content: String, tags: List<String>, onceView: Boolean) = viewModelScope.launch {
+    fun createPost(content: String, tags: List<String>, onceView: Boolean,
+                   bgType: String = "none", bgValue: String? = null) = viewModelScope.launch {
         try {
-            val resp = ApiClient.api.createPost(CreatePostRequest(content, tags, onceView))
+            val resp = ApiClient.api.createPost(CreatePostRequest(content, tags, onceView, bgType, bgValue))
             if (resp.isSuccessful) loadPosts()
         } catch (e: Exception) { err(e) }
     }

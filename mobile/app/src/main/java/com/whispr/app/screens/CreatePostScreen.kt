@@ -1,6 +1,7 @@
 package com.whispr.app.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -52,6 +53,8 @@ fun CreatePostScreen(
     var onceView by remember { mutableStateOf(false) }
     var selectedType by remember { mutableStateOf("anonymous") }
     var selectedMood by remember { mutableStateOf<String?>(null) }
+    var selectedBg by remember { mutableStateOf<String?>(null) } // gradient preset id, null = plain
+    val activeBg = postBackgroundById(selectedBg)
 
     Scaffold(
         topBar = {
@@ -65,7 +68,11 @@ fun CreatePostScreen(
                         onClick = {
                             val tagList = tags.split(",", " ").map { it.trim().removePrefix("#") }
                                 .filter { it.isNotBlank() }
-                            viewModel.createPost(content, tagList, onceView)
+                            viewModel.createPost(
+                                content, tagList, onceView,
+                                bgType = if (selectedBg != null) "gradient" else "none",
+                                bgValue = selectedBg
+                            )
                             onBack()
                         },
                         enabled = content.isNotBlank(),
@@ -108,26 +115,83 @@ fun CreatePostScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // Content field
-            Surface(color = CardBg, shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()) {
-                androidx.compose.foundation.text.BasicTextField(
-                    value = content,
-                    onValueChange = { content = it },
-                    textStyle = androidx.compose.ui.text.TextStyle(
-                        color = TextPrimary, fontSize = 16.sp, lineHeight = 22.sp),
-                    cursorBrush = androidx.compose.ui.graphics.SolidColor(VioletBright),
+            // Content field — plain card OR gradient background
+            if (activeBg == null) {
+                Surface(color = CardBg, shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()) {
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = content,
+                        onValueChange = { content = it },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            color = TextPrimary, fontSize = 16.sp, lineHeight = 22.sp),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(VioletBright),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 140.dp)
+                            .padding(16.dp),
+                        decorationBox = { inner ->
+                            if (content.isEmpty()) {
+                                Text("What's on your mind?", color = TextTertiary, fontSize = 16.sp)
+                            }
+                            inner()
+                        }
+                    )
+                }
+            } else {
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 140.dp)
-                        .padding(16.dp),
-                    decorationBox = { inner ->
-                        if (content.isEmpty()) {
-                            Text("What's on your mind?", color = TextTertiary, fontSize = 16.sp)
+                        .heightIn(min = 180.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Brush.linearGradient(activeBg.colors)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = content,
+                        onValueChange = { content = it },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            color = Color.White, fontSize = 22.sp, lineHeight = 30.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        decorationBox = { inner ->
+                            if (content.isEmpty()) {
+                                Text("What's on your mind?",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth())
+                            }
+                            inner()
                         }
-                        inner()
-                    }
-                )
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Background picker
+            Text("Background", color = TextSecondary, fontSize = 13.sp,
+                fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(10.dp))
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // "None" swatch
+                BgSwatch(
+                    selected = selectedBg == null,
+                    label = "None",
+                    brush = Brush.linearGradient(listOf(CardBg, CardBgAlt))
+                ) { selectedBg = null }
+                PostBackgrounds.forEach { bg ->
+                    BgSwatch(
+                        selected = selectedBg == bg.id,
+                        label = bg.label,
+                        brush = Brush.linearGradient(bg.colors)
+                    ) { selectedBg = bg.id }
+                }
             }
 
             Spacer(Modifier.height(20.dp))
@@ -202,6 +266,34 @@ fun CreatePostScreen(
 
             Spacer(Modifier.height(24.dp))
         }
+    }
+}
+
+@Composable
+private fun BgSwatch(selected: Boolean, label: String, brush: Brush, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(brush)
+                .then(
+                    if (selected)
+                        Modifier.border(2.dp, Color.White, RoundedCornerShape(12.dp))
+                    else Modifier
+                )
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selected) {
+                Icon(Icons.Default.Check, null, tint = Color.White,
+                    modifier = Modifier.size(20.dp))
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(label, color = if (selected) TextPrimary else TextTertiary,
+            fontSize = 10.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
     }
 }
 

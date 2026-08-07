@@ -216,6 +216,7 @@ fun PostCard(
     onReply: () -> Unit
 ) {
     val authorName = post.author?.displayName ?: post.author?.username ?: "Anonymous"
+    val bg = postBackgroundById(if (post.bgType == "gradient") post.bgValue else null)
     Surface(
         color = CardBg,
         shape = RoundedCornerShape(18.dp),
@@ -239,8 +240,29 @@ fun PostCard(
 
             Spacer(Modifier.height(10.dp))
 
-            // Content
-            Text(post.content, color = TextPrimary, fontSize = 15.sp, lineHeight = 21.sp)
+            // Content — gradient hero OR plain text
+            if (bg != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 140.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Brush.linearGradient(bg.colors))
+                        .padding(20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        post.content,
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        lineHeight = 27.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            } else {
+                Text(post.content, color = TextPrimary, fontSize = 15.sp, lineHeight = 21.sp)
+            }
 
             if (post.hasOnceView) {
                 Spacer(Modifier.height(8.dp))

@@ -43,6 +43,8 @@ data class Post(
     @SerializedName("replies_count") val repliesCount: Int = 0,
     @SerializedName("is_edited") val isEdited: Boolean = false,
     @SerializedName("user_upvoted") val isUpvoted: Boolean = false,
+    @SerializedName("bg_type") val bgType: String = "none",
+    @SerializedName("bg_value") val bgValue: String? = null,
     val author: User? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     // Legacy compat fields (may be absent)
@@ -55,7 +57,9 @@ data class Post(
 data class CreatePostRequest(
     val content: String,
     val tags: List<String> = emptyList(),
-    @SerializedName("once_view") val onceView: Boolean = false
+    @SerializedName("once_view") val onceView: Boolean = false,
+    @SerializedName("bg_type") val bgType: String = "none",
+    @SerializedName("bg_value") val bgValue: String? = null
 )
 
 // Chat
