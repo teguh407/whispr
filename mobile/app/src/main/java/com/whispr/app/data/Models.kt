@@ -16,9 +16,9 @@ data class AuthResponse(
 
 // User
 data class User(
-    val id: String,
-    val username: String,
-    @SerializedName("display_name") val displayName: String?,
+    val id: String = "",
+    val username: String = "",
+    @SerializedName("display_name") val displayName: String? = null,
     val bio: String? = null,
     @SerializedName("avatar_url") val avatarUrl: String? = null,
     val karma: Int = 0,
@@ -32,18 +32,24 @@ data class ProfileUpdate(
     @SerializedName("display_name") val displayName: String? = null
 )
 
-// Posts
+// Posts — match actual backend response
 data class Post(
-    val id: String,
-    val content: String,
+    val id: String = "",
+    val content: String = "",
+    @SerializedName("media_url") val mediaUrl: String? = null,
+    @SerializedName("media_type") val mediaType: String? = null,
+    @SerializedName("is_once_view") val hasOnceView: Boolean = false,
+    val upvotes: Int = 0,
+    @SerializedName("replies_count") val repliesCount: Int = 0,
+    @SerializedName("is_edited") val isEdited: Boolean = false,
+    @SerializedName("user_upvoted") val isUpvoted: Boolean = false,
     val author: User? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+    // Legacy compat fields (may be absent)
     @SerializedName("author_id") val authorId: String = "",
     @SerializedName("upvote_count") val upvoteCount: Int = 0,
-    @SerializedName("is_upvoted") val isUpvoted: Boolean = false,
-    val tags: List<String> = emptyList(),
-    @SerializedName("has_once_view") val hasOnceView: Boolean = false,
-    @SerializedName("view_once_media") val viewOnceMedia: String? = null,
-    @SerializedName("created_at") val createdAt: String? = null
+    @SerializedName("has_once_view") val legacyHasOnceView: Boolean = false,
+    val tags: List<String> = emptyList()
 )
 
 data class CreatePostRequest(
@@ -54,7 +60,7 @@ data class CreatePostRequest(
 
 // Chat
 data class Chat(
-    val id: String,
+    val id: String = "",
     val user: User? = null,
     @SerializedName("last_message") val lastMessage: String? = null,
     @SerializedName("last_message_at") val lastMessageAt: String? = null,
@@ -81,9 +87,9 @@ data class WsMessage(
 
 // Links
 data class ShareableLink(
-    val id: String,
-    val code: String,
-    val url: String,
+    val id: String = "",
+    val code: String = "",
+    val url: String = "",
     @SerializedName("message_count") val messageCount: Int = 0,
     @SerializedName("created_at") val createdAt: String? = null
 )
@@ -93,9 +99,9 @@ data class LinkMessage(val message: String)
 
 // Accounts
 data class Account(
-    val id: String,
-    val username: String,
-    @SerializedName("display_name") val displayName: String?,
+    val id: String = "",
+    val username: String = "",
+    @SerializedName("display_name") val displayName: String? = null,
     @SerializedName("is_active") val isActive: Boolean = false
 )
 
@@ -107,22 +113,22 @@ data class CreateAccountRequest(
 
 // Block
 data class BlockedUser(
-    val id: String,
+    val id: String = "",
     val user: User? = null
 )
 
 // GIF
 data class GifSearchResponse(val results: List<GifResult> = emptyList())
 data class GifResult(
-    val url: String,
+    val url: String = "",
     val thumbnail: String? = null,
     val title: String? = null
 )
 
 // Call
 data class CallSession(
-    val id: String,
-    val token: String,
+    val id: String = "",
+    val token: String = "",
     val status: String = "ringing"
 )
 

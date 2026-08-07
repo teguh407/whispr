@@ -38,6 +38,7 @@ fun FeedScreen(
 ) {
     val posts by viewModel.posts.collectAsState()
     val isLoading by viewModel.loading.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
     var selectedTag by remember { mutableStateOf<String?>(null) }
     val tags = listOf("general", "confession", "question", "meme", "story", "advice", "hot", "new")
 
@@ -120,7 +121,7 @@ fun FeedScreen(
                             onUpvote = { viewModel.upvotePost(post.id) },
                             onDelete = { viewModel.deletePost(post.id) },
                             onClick = { if (post.hasOnceView) onPostClick(post.id) },
-                            currentUserId = viewModel.currentUser.collectAsState().value?.id ?: ""
+                            currentUserId = currentUser?.id ?: ""
                         )
                     }
                 }
@@ -168,7 +169,7 @@ fun PostCard(
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text(
-                        post.author?.displayName ?: "Anonymous",
+                        post.author?.displayName ?: post.author?.username ?: "Anonymous",
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary,
                         fontSize = 14.sp
@@ -181,7 +182,7 @@ fun PostCard(
                 if (post.hasOnceView) {
                     Icon(Icons.Default.Visibility, null, tint = PrimaryPink, modifier = Modifier.size(16.dp))
                 }
-                if (post.authorId == currentUserId) {
+                if (post.authorId == currentUserId || post.author?.id == currentUserId) {
                     IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                         Icon(Icons.Default.Delete, "Delete", tint = ErrorRed, modifier = Modifier.size(18.dp))
                     }
@@ -215,6 +216,7 @@ fun PostCard(
             Spacer(Modifier.height(12.dp))
 
             // Upvote
+            val voteCount = if (post.upvoteCount > 0) post.upvoteCount else post.upvotes
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onUpvote, modifier = Modifier.size(36.dp)) {
                     Icon(
@@ -225,7 +227,7 @@ fun PostCard(
                     )
                 }
                 Text(
-                    "${post.upvoteCount}",
+                    "$voteCount",
                     color = if (post.isUpvoted) UpvoteColor else TextSecondary,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp
