@@ -8,7 +8,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    private var baseUrl = "http://43.153.207.36/"
+    private var baseUrl = "http://43.153.207.36:8002/"
     private var authToken: String? = null
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
