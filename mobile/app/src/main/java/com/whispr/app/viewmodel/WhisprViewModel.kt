@@ -89,10 +89,10 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     fun clearError() { _error.value = null }
 
     // Auth
-    fun login(username: String, password: String) = viewModelScope.launch {
+    fun login(email: String, password: String) = viewModelScope.launch {
         _loading.value = true
         try {
-            val resp = ApiClient.api.login(LoginRequest(username, password))
+            val resp = ApiClient.api.login(LoginRequest(email, password))
             if (resp.isSuccessful) {
                 resp.body()?.let {
                     TokenStore.saveToken(ctx(), it.token)
