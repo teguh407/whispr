@@ -231,6 +231,9 @@ fun PostCard(
 ) {
     val authorName = post.author?.displayName ?: post.author?.username ?: "Anonymous"
     val bg = postBackgroundById(if (post.bgType == "gradient") post.bgValue else null)
+    val typeMeta = typeMetaFor(post.postType)
+    val moodE = moodEmoji(post.mood)
+    val isConfession = post.postType == "confession"
     var menuOpen by remember { mutableStateOf(false) }
     var showEdit by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -286,6 +289,18 @@ fun PostCard(
                 }
             }
 
+            // Type badge + mood chip row
+            if (typeMeta != null || moodE != null) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (typeMeta != null) TypeBadge(typeMeta)
+                    if (moodE != null) MoodChip(post.mood ?: "", moodE)
+                }
+            }
+
             Spacer(Modifier.height(10.dp))
 
             // Content — gradient hero OR plain text
@@ -309,7 +324,14 @@ fun PostCard(
                     )
                 }
             } else {
-                Text(post.content, color = TextPrimary, fontSize = 15.sp, lineHeight = 21.sp)
+                Text(
+                    post.content,
+                    color = if (isConfession) TextSecondary else TextPrimary,
+                    fontSize = 15.sp,
+                    lineHeight = 21.sp,
+                    fontStyle = if (isConfession) androidx.compose.ui.text.font.FontStyle.Italic
+                                else androidx.compose.ui.text.font.FontStyle.Normal
+                )
             }
 
             if (post.hasOnceView) {
@@ -416,6 +438,66 @@ fun PostCard(
                 }
             }
         )
+    }
+}
+
+// ── Post type + mood visual identity ──
+
+private data class TypeMeta(
+    val label: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val color: Color
+)
+
+private fun typeMetaFor(type: String?): TypeMeta? = when (type) {
+    "question"   -> TypeMeta("QUESTION",   Icons.Outlined.HelpOutline,     VioletBright)
+    "confession" -> TypeMeta("CONFESSION", Icons.Outlined.Lock,            PrimaryPink)
+    "poll"       -> TypeMeta("POLL",       Icons.Outlined.BarChart,        AccentTeal)
+    "nearby"     -> TypeMeta("NEARBY",     Icons.Outlined.LocationOn,      SuccessGreen)
+    "voice"      -> TypeMeta("VOICE",      Icons.Outlined.Mic,             Color(0xFFFF9F4D))
+    "photo"      -> TypeMeta("PHOTO",      Icons.Outlined.Image,           Color(0xFF4D8CFF))
+    else         -> null   // "anonymous" = default, no badge
+}
+
+private fun moodEmoji(mood: String?): String? = when (mood) {
+    "Happy"   -> "😊"
+    "Lonely"  -> "🥺"
+    "Sad"     -> "😔"
+    "Angry"   -> "😠"
+    "Excited" -> "🤩"
+    "Anxious" -> "😰"
+    else      -> null
+}
+
+@Composable
+private fun TypeBadge(meta: TypeMeta) {
+    Surface(
+        color = meta.color.copy(alpha = 0.15f),
+        shape = RoundedCornerShape(50),
+        modifier = Modifier.clip(RoundedCornerShape(50))
+    ) {
+        Row(
+            Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(meta.icon, null, tint = meta.color, modifier = Modifier.size(12.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(meta.label, color = meta.color, fontSize = 10.sp,
+                fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+        }
+    }
+}
+
+@Composable
+private fun MoodChip(mood: String, emoji: String) {
+    Surface(
+        color = ChipBg,
+        shape = RoundedCornerShape(50),
+        modifier = Modifier.clip(RoundedCornerShape(50))
+    ) {
+        Text("$emoji $mood", color = TextSecondary, fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
     }
 }
 
