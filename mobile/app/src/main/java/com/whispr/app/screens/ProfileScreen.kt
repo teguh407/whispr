@@ -1,6 +1,7 @@
 package com.whispr.app.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,17 +37,32 @@ fun ProfileScreen(
     var bio by remember(user) { mutableStateOf(user?.bio ?: "") }
     var editing by remember { mutableStateOf(false) }
 
+    // Derived "ghost" identity from real backend fields.
+    val karma = user?.karma ?: 0
+    val days = user?.daysActive ?: 0
+    val posts = user?.postsCount ?: 0
+    val level = (karma / 100) + 1
+    val trustScore = 500 + karma * 2 + days * 5
+    val whisprId = "#" + (user?.id?.take(7)?.uppercase() ?: "0000000")
+
+    var showInNearby by remember { mutableStateOf(true) }
+    var readReceipts by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Profile", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") }
+                },
+                actions = {
+                    IconButton(onClick = { editing = !editing }) {
+                        Icon(if (editing) Icons.Default.Close else Icons.Default.Edit,
+                            "Edit", tint = VioletBright)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Background,
+                    containerColor = Surface,
                     titleContentColor = TextPrimary,
                     navigationIconContentColor = TextPrimary
                 )
@@ -58,104 +75,198 @@ fun ProfileScreen(
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(24.dp),
+                .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Avatar
+            Spacer(Modifier.height(16.dp))
+
+            // Avatar + identity
             Box(
                 modifier = Modifier
                     .size(96.dp)
                     .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(PrimaryPurple, PrimaryPink))),
+                    .background(Brush.linearGradient(listOf(GradientStart, GradientEnd))),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    user?.displayName?.firstOrNull()?.uppercase() ?: "?",
-                    color = Color.White,
-                    fontSize = 36.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Icon(Icons.Default.Person, null, tint = Color.White,
+                    modifier = Modifier.size(48.dp))
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
 
             if (editing) {
                 OutlinedTextField(
-                    value = displayName,
-                    onValueChange = { displayName = it },
-                    label = { Text("Display Name") },
-                    modifier = Modifier.fillMaxWidth(),
+                    value = displayName, onValueChange = { displayName = it },
+                    label = { Text("Display Name") }, modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryPurple,
-                        unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f),
-                        unfocusedContainerColor = CardBg,
-                        focusedContainerColor = Color.Transparent,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    )
+                    colors = fieldColors()
                 )
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
-                    value = bio,
-                    onValueChange = { bio = it },
+                    value = bio, onValueChange = { bio = it },
                     label = { Text("Bio") },
                     modifier = Modifier.fillMaxWidth().height(100.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryPurple,
-                        unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f),
-                        unfocusedContainerColor = CardBg,
-                        focusedContainerColor = Color.Transparent,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    )
+                    colors = fieldColors()
                 )
                 Spacer(Modifier.height(12.dp))
                 Button(
-                    onClick = {
-                        viewModel.updateProfile(displayName, bio)
-                        editing = false
-                    },
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    onClick = { viewModel.updateProfile(displayName, bio); editing = false },
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-                ) { Text("Save") }
+                ) { Text("Save", fontWeight = FontWeight.Bold) }
             } else {
-                Text(
-                    user?.displayName ?: "Anonymous",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Text("@${user?.username}", color = TextSecondary)
-                Spacer(Modifier.height(8.dp))
-                Text(user?.bio ?: "No bio yet", color = TextSecondary)
-                Spacer(Modifier.height(16.dp))
-
-                // Stats
-                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    StatItem("Karma", "${user?.karma ?: 0}")
-                    StatItem("Days Active", "${user?.daysActive ?: 0}")
+                Text(user?.displayName ?: "Anonymous", fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold, color = TextPrimary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Whispr ID $whisprId", color = TextSecondary, fontSize = 13.sp)
                 }
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
 
-                OutlinedButton(
-                    onClick = { editing = true },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth().height(44.dp)
-                ) { Text("Edit Profile") }
+                // Level + Trust badges
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    BadgePill("Level $level Ghost", Icons.Default.Shield, PrimaryPurple)
+                    BadgePill("Trust $trustScore", Icons.Default.Verified, AccentTeal)
+                }
+                Spacer(Modifier.height(8.dp))
+                if (!user?.bio.isNullOrBlank()) {
+                    Text(user!!.bio!!, color = TextSecondary, fontSize = 14.sp)
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Stats row
+                Surface(color = CardBg, shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        StatItem("Karma", "$karma")
+                        StatItem("Posts", "$posts")
+                        StatItem("Days", "$days")
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                // Ghost Reputation
+                SectionHeader("Ghost Reputation")
+                Surface(color = CardBg, shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        RepRow("Posts shared", "$posts", Icons.Default.Article)
+                        RepRow("Karma earned", "$karma", Icons.Default.Star)
+                        RepRow("Trust score", "$trustScore", Icons.Default.Verified)
+                        RepRow("Level", "Ghost $level", Icons.Default.Shield, last = true)
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                // Settings & Privacy
+                SectionHeader("Settings & Privacy")
+                Surface(color = CardBg, shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()) {
+                    Column {
+                        ToggleRow("Show me in Nearby", Icons.Default.LocationOn, showInNearby) {
+                            showInNearby = it
+                        }
+                        Divider(color = Background, thickness = 1.dp)
+                        ToggleRow("Read Receipts", Icons.Default.DoneAll, readReceipts) {
+                            readReceipts = it
+                        }
+                        Divider(color = Background, thickness = 1.dp)
+                        NavRow("My Chats", Icons.Default.Chat, onChats)
+                        Divider(color = Background, thickness = 1.dp)
+                        NavRow("Block List", Icons.Default.Block, onBlocks)
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                // Whispr Premium
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color.Transparent
+                ) {
+                    Column(
+                        Modifier
+                            .background(Brush.linearGradient(listOf(VioletDeep, PrimaryPink)))
+                            .padding(18.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.WorkspacePremium, null, tint = Color.White)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Whispr Premium", color = Color.White, fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        PremiumPerk("See who liked your whispers")
+                        PremiumPerk("Unlimited once-view photos")
+                        PremiumPerk("Longer voice messages")
+                        PremiumPerk("Exclusive premium badge")
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = {},
+                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                        ) {
+                            Text("Upgrade", color = VioletDeep, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+                TextButton(
+                    onClick = { viewModel.logout(); onLogout() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Logout, null, tint = ErrorRed, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Logout", color = ErrorRed, fontWeight = FontWeight.Medium)
+                }
+                Spacer(Modifier.height(24.dp))
             }
+        }
+    }
+}
 
-            Spacer(Modifier.height(24.dp))
+@Composable
+private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = PrimaryPurple,
+    unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f),
+    unfocusedContainerColor = CardBg,
+    focusedContainerColor = Color.Transparent,
+    focusedTextColor = TextPrimary,
+    unfocusedTextColor = TextPrimary,
+    focusedLabelColor = VioletBright,
+    unfocusedLabelColor = TextSecondary
+)
 
-            // Menu items
-            ProfileMenuItem(Icons.Default.Chat, "My Chats", onChats)
-            ProfileMenuItem(Icons.Default.Block, "Blocked Users", onBlocks)
-            ProfileMenuItem(Icons.Default.Settings, "Settings") {}
-            Spacer(Modifier.height(16.dp))
-            TextButton(onClick = { viewModel.logout(); onLogout() }) {
-                Text("Logout", color = ErrorRed)
-            }
+@Composable
+private fun SectionHeader(title: String) {
+    Row(Modifier.fillMaxWidth()) {
+        Text(title, color = TextSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    }
+    Spacer(Modifier.height(8.dp))
+}
+
+@Composable
+private fun BadgePill(text: String, icon: ImageVector, tint: Color) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = tint.copy(alpha = 0.15f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, tint.copy(alpha = 0.5f))
+    ) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = tint, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(5.dp))
+            Text(text, color = tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -163,27 +274,64 @@ fun ProfileScreen(
 @Composable
 fun StatItem(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = PrimaryPurple)
+        Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = VioletBright)
         Text(label, fontSize = 12.sp, color = TextSecondary)
     }
 }
 
 @Composable
-fun ProfileMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = CardBg
+private fun RepRow(label: String, value: String, icon: ImageVector, last: Boolean = false) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        Icon(icon, null, tint = VioletBright, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(label, color = TextSecondary, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        Text(value, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun ToggleRow(label: String, icon: ImageVector, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(14.dp))
+        Text(label, color = TextPrimary, fontSize = 15.sp, modifier = Modifier.weight(1f))
+        Switch(
+            checked = checked, onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = PrimaryPurple,
+                uncheckedTrackColor = ChipBg
+            )
+        )
+    }
+}
+
+@Composable
+private fun NavRow(label: String, icon: ImageVector, onClick: () -> Unit) {
+    Surface(onClick = onClick, color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, null, tint = PrimaryPurple)
-            Spacer(Modifier.width(16.dp))
-            Text(title, color = TextPrimary, modifier = Modifier.weight(1f))
-            Icon(Icons.Default.ChevronRight, null, tint = TextSecondary)
+            Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(14.dp))
+            Text(label, color = TextPrimary, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            Icon(Icons.Default.ChevronRight, null, tint = TextTertiary)
         }
+    }
+}
+
+@Composable
+private fun PremiumPerk(text: String) {
+    Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(text, color = Color.White.copy(alpha = 0.95f), fontSize = 13.sp)
     }
 }

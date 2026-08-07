@@ -1,22 +1,45 @@
 package com.whispr.app.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.whispr.app.ui.theme.*
 import com.whispr.app.viewmodel.WhisprViewModel
+
+private data class PostType(val id: String, val label: String, val icon: ImageVector)
+
+private val postTypes = listOf(
+    PostType("anonymous", "Anonymous", Icons.Filled.VisibilityOff),
+    PostType("question", "Question", Icons.Filled.HelpOutline),
+    PostType("confession", "Confession", Icons.Filled.Lock),
+    PostType("poll", "Poll", Icons.Filled.BarChart),
+    PostType("voice", "Voice", Icons.Filled.Mic),
+    PostType("photo", "Photo", Icons.Filled.PhotoCamera),
+    PostType("nearby", "Nearby Chat", Icons.Filled.LocationOn),
+)
+
+private val moods = listOf(
+    "Happy" to "😊", "Lonely" to "🥺", "Sad" to "😢",
+    "Angry" to "😠", "Excited" to "🤩", "Anxious" to "😰"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,18 +50,39 @@ fun CreatePostScreen(
     var content by remember { mutableStateOf("") }
     var tags by remember { mutableStateOf("") }
     var onceView by remember { mutableStateOf(false) }
+    var selectedType by remember { mutableStateOf("anonymous") }
+    var selectedMood by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("New Post", fontWeight = FontWeight.Bold) },
+                title = { Text("Create", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                    IconButton(onClick = onBack) { Icon(Icons.Default.Close, "Close") }
+                },
+                actions = {
+                    Button(
+                        onClick = {
+                            val tagList = tags.split(",", " ").map { it.trim().removePrefix("#") }
+                                .filter { it.isNotBlank() }
+                            viewModel.createPost(content, tagList, onceView)
+                            onBack()
+                        },
+                        enabled = content.isNotBlank(),
+                        shape = RoundedCornerShape(50),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PrimaryPurple,
+                            disabledContainerColor = ChipBg
+                        ),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Text("Post", fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                            color = if (content.isNotBlank()) Color.White else TextTertiary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Background,
+                    containerColor = Surface,
                     titleContentColor = TextPrimary,
                     navigationIconContentColor = TextPrimary
                 )
@@ -53,83 +97,177 @@ fun CreatePostScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            OutlinedTextField(
-                value = content,
-                onValueChange = { content = it },
-                label = { Text("What's on your mind?") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PrimaryPurple,
-                    unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f),
-                    unfocusedContainerColor = CardBg,
-                    focusedContainerColor = Color.Transparent,
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary
-                )
-            )
-            Spacer(Modifier.height(16.dp))
+            // Post type selector
+            Text("Post type", color = TextSecondary, fontSize = 13.sp,
+                fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(10.dp))
+            FlowGrid(postTypes.size, columns = 4) { i ->
+                val t = postTypes[i]
+                TypeChip(t.label, t.icon, selectedType == t.id) { selectedType = t.id }
+            }
 
-            OutlinedTextField(
-                value = tags,
-                onValueChange = { tags = it },
-                label = { Text("Tags (comma separated)") },
-                leadingIcon = { Icon(Icons.Default.Tag, null) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PrimaryPurple,
-                    unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f),
-                    unfocusedContainerColor = CardBg,
-                    focusedContainerColor = Color.Transparent,
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary
-                ),
-                singleLine = true
-            )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(20.dp))
 
-            // Once-view toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.Visibility, null, tint = PrimaryPink)
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Once-view media", color = TextPrimary, fontWeight = FontWeight.Medium)
-                    Text("Post disappears after viewing", color = TextSecondary, fontSize = 12.sp)
-                }
-                Switch(
-                    checked = onceView,
-                    onCheckedChange = { onceView = it },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = PrimaryPink
-                    )
+            // Content field
+            Surface(color = CardBg, shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()) {
+                androidx.compose.foundation.text.BasicTextField(
+                    value = content,
+                    onValueChange = { content = it },
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        color = TextPrimary, fontSize = 16.sp, lineHeight = 22.sp),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(VioletBright),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 140.dp)
+                        .padding(16.dp),
+                    decorationBox = { inner ->
+                        if (content.isEmpty()) {
+                            Text("What's on your mind?", color = TextTertiary, fontSize = 16.sp)
+                        }
+                        inner()
+                    }
                 )
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(20.dp))
 
-            Button(
-                onClick = {
-                    val tagList = tags.split(",").map { it.trim() }.filter { it.isNotBlank() }
-                    viewModel.createPost(content, tagList, onceView)
-                    onBack()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                enabled = content.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
+            // Mood selector
+            Text("How are you feeling?", color = TextSecondary, fontSize = 13.sp,
+                fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(10.dp))
+            Row(
+                Modifier.fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(Icons.Default.Send, null)
-                Spacer(Modifier.width(8.dp))
-                Text("Post", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                moods.forEach { (name, emoji) ->
+                    MoodChip(name, emoji, selectedMood == name) {
+                        selectedMood = if (selectedMood == name) null else name
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            // Tags
+            Surface(color = CardBg, shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth().height(50.dp)) {
+                Row(Modifier.fillMaxSize().padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Tag, null, tint = VioletBright, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = tags,
+                        onValueChange = { tags = it },
+                        singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(color = TextPrimary, fontSize = 14.sp),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(VioletBright),
+                        modifier = Modifier.fillMaxWidth(),
+                        decorationBox = { inner ->
+                            if (tags.isEmpty()) Text("Add tags: curhat, random…",
+                                color = TextTertiary, fontSize = 14.sp)
+                            inner()
+                        }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Once-view toggle
+            Surface(color = CardBg, shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Visibility, null, tint = PrimaryPink)
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Once-view media", color = TextPrimary, fontWeight = FontWeight.Medium)
+                        Text("Disappears after viewing", color = TextTertiary, fontSize = 12.sp)
+                    }
+                    Switch(
+                        checked = onceView,
+                        onCheckedChange = { onceView = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = PrimaryPurple,
+                            uncheckedTrackColor = ChipBg
+                        )
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun TypeChip(label: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(
+                    if (selected) Brush.linearGradient(listOf(GradientStart, GradientEnd))
+                    else Brush.linearGradient(listOf(CardBg, CardBg))
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, label, tint = if (selected) Color.White else TextSecondary,
+                modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(label, color = if (selected) TextPrimary else TextTertiary, fontSize = 10.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+    }
+}
+
+@Composable
+private fun MoodChip(name: String, emoji: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        color = if (selected) PrimaryPurple.copy(alpha = 0.25f) else ChipBg,
+        shape = RoundedCornerShape(50),
+        onClick = onClick,
+        border = if (selected) androidx.compose.foundation.BorderStroke(1.dp, VioletBright) else null
+    ) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(emoji, fontSize = 14.sp)
+            Spacer(Modifier.width(4.dp))
+            Text(name, color = if (selected) VioletBright else TextSecondary, fontSize = 12.sp)
+        }
+    }
+}
+
+/** Simple wrapping grid without external deps. */
+@Composable
+private fun FlowGrid(count: Int, columns: Int, item: @Composable (Int) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        var i = 0
+        while (i < count) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                for (c in 0 until columns) {
+                    if (i < count) {
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { item(i) }
+                        i++
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
             }
         }
     }

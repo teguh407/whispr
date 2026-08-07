@@ -95,10 +95,23 @@ fun ChatScreen(
         }
     }
 
+    val peerName = viewModel.chats.collectAsState().value
+        .firstOrNull { it.id == chatId }?.user?.let { it.displayName ?: it.username } ?: "Anonymous"
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Chat", fontWeight = FontWeight.Bold) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        com.whispr.app.ui.components.PersonaAvatar(peerName, size = 36, online = true)
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(peerName, fontWeight = FontWeight.Bold, fontSize = 16.sp,
+                                color = TextPrimary)
+                            Text("Active now", fontSize = 11.sp, color = OnlineGreen)
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, "Back")
@@ -106,13 +119,14 @@ fun ChatScreen(
                 },
                 actions = {
                     IconButton(onClick = onCall) {
-                        Icon(Icons.Default.Phone, "Call", tint = SuccessGreen)
+                        Icon(Icons.Default.Call, "Call", tint = VioletBright)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Background,
+                    containerColor = Surface,
                     titleContentColor = TextPrimary,
-                    navigationIconContentColor = TextPrimary
+                    navigationIconContentColor = TextPrimary,
+                    actionIconContentColor = VioletBright
                 )
             )
         },
@@ -219,36 +233,54 @@ fun ChatScreen(
 
 @Composable
 fun MessageBubble(msg: ChatMessage, isMe: Boolean) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
+        horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
     ) {
         Surface(
             shape = RoundedCornerShape(
-                topStart = 16.dp, topEnd = 16.dp,
-                bottomStart = if (isMe) 16.dp else 4.dp,
-                bottomEnd = if (isMe) 4.dp else 16.dp
+                topStart = 18.dp, topEnd = 18.dp,
+                bottomStart = if (isMe) 18.dp else 4.dp,
+                bottomEnd = if (isMe) 4.dp else 18.dp
             ),
             color = if (isMe) PrimaryPurple else CardBg,
             modifier = Modifier.widthIn(max = 280.dp)
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                 when (msg.type) {
                     "voice" -> {
-                        Icon(Icons.Default.Mic, null, tint = if (isMe) Color.White else PrimaryPurple)
-                        Text("Voice message", color = if (isMe) Color.White else TextPrimary, fontSize = 13.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Mic, null,
+                                tint = if (isMe) Color.White else VioletBright,
+                                modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Voice message",
+                                color = if (isMe) Color.White else TextPrimary, fontSize = 13.sp)
+                        }
                     }
-                    "photo" -> {
-                        Text("📷 Photo", color = if (isMe) Color.White else TextPrimary)
-                    }
-                    "gif" -> {
-                        Text("🎬 GIF", color = if (isMe) Color.White else TextPrimary)
-                    }
-                    else -> {
-                        Text(msg.content, color = if (isMe) Color.White else TextPrimary, lineHeight = 20.sp)
-                    }
+                    "photo" -> Text("📷 Photo", color = if (isMe) Color.White else TextPrimary)
+                    "gif" -> Text("🎬 GIF", color = if (isMe) Color.White else TextPrimary)
+                    else -> Text(msg.content,
+                        color = if (isMe) Color.White else TextPrimary, lineHeight = 20.sp,
+                        fontSize = 15.sp)
                 }
             }
         }
+        Text(
+            formatBubbleTime(msg.createdAt),
+            color = TextTertiary,
+            fontSize = 10.sp,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
     }
+}
+
+private fun formatBubbleTime(iso: String?): String {
+    if (iso.isNullOrBlank()) return ""
+    return try {
+        val date = java.util.Date(
+            java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli()
+        )
+        SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
+    } catch (e: Exception) { "" }
 }

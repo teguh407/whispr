@@ -67,6 +67,8 @@ fun WhisprNavigation(viewModel: WhisprViewModel = viewModel()) {
                 onPostClick = { /* Handle once-view */ },
                 onNavigate = { route ->
                     when (route) {
+                        "feed" -> { /* already here */ }
+                        "explore" -> navController.navigate(Screen.Links.route)
                         "links" -> navController.navigate(Screen.Links.route)
                         "accounts" -> navController.navigate(Screen.Accounts.route)
                         "profile" -> navController.navigate(Screen.Profile.route)
@@ -90,7 +92,17 @@ fun WhisprNavigation(viewModel: WhisprViewModel = viewModel()) {
                     navController.navigate(Screen.Chat.createRoute(chatId))
                 },
                 onCreateChat = { /* Show user picker */ },
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onNavigate = { route ->
+                    when (route) {
+                        "chats" -> { /* already here */ }
+                        "feed" -> navController.navigate(Screen.Feed.route) {
+                            popUpTo(Screen.Feed.route) { inclusive = true }
+                        }
+                        "explore" -> navController.navigate(Screen.Links.route)
+                        "profile" -> navController.navigate(Screen.Profile.route)
+                    }
+                }
             )
         }
 

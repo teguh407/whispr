@@ -1,5 +1,6 @@
 package com.whispr.app.screens
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -10,20 +11,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.whispr.app.ui.components.PersonaAvatar
 import com.whispr.app.ui.theme.*
 import com.whispr.app.viewmodel.WhisprViewModel
 
 @Composable
 fun VoiceCallScreen(
     viewModel: WhisprViewModel,
-    onEndCall: () -> Unit
+    onEndCall: () -> Unit,
+    peerName: String = "Anonymous"
 ) {
     var isMuted by remember { mutableStateOf(false) }
+    var isSpeaker by remember { mutableStateOf(false) }
     var callDuration by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
@@ -33,101 +38,103 @@ fun VoiceCallScreen(
         }
     }
 
+    // Subtle pulsing ring behind the avatar.
+    val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
+        initialValue = 1f, targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ), label = "pulseScale"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(listOf(Background, Surface))
-            ),
-        contentAlignment = Alignment.Center
+            .background(Brush.verticalGradient(listOf(Background, VioletDeep.copy(alpha = 0.35f), Background)))
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier.fillMaxSize().padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Avatar
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(PrimaryPurple, PrimaryPink))),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Person,
-                    null,
-                    tint = Color.White,
-                    modifier = Modifier.size(64.dp)
+            Spacer(Modifier.height(72.dp))
+
+            Text("Voice Call", color = TextSecondary, fontSize = 14.sp,
+                fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(8.dp))
+            Text(peerName, color = TextPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            Text(formatDuration(callDuration), color = VioletBright, fontSize = 18.sp,
+                fontWeight = FontWeight.Medium)
+
+            Spacer(Modifier.height(56.dp))
+
+            Box(contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .size(180.dp)
+                        .scale(pulse)
+                        .clip(CircleShape)
+                        .background(PrimaryPurple.copy(alpha = 0.12f))
                 )
+                PersonaAvatar(peerName, size = 132)
             }
 
-            Spacer(Modifier.height(24.dp))
-            Text("Voice Call", color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                formatDuration(callDuration),
-                color = SuccessGreen,
-                fontSize = 18.sp
-            )
-            Text("Connected", color = TextSecondary, fontSize = 14.sp)
+            Spacer(Modifier.weight(1f))
 
-            Spacer(Modifier.height(64.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(28.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                CallControl(
+                    icon = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                    label = if (isMuted) "Unmute" else "Mute",
+                    active = isMuted
+                ) { isMuted = !isMuted }
 
-            // Controls
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                // Mute button
-                FloatingActionButton(
-                    onClick = { isMuted = !isMuted },
-                    containerColor = if (isMuted) ErrorRed else CardBg,
-                    shape = CircleShape,
-                    modifier = Modifier.size(64.dp)
-                ) {
-                    Icon(
-                        if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
-                        "Mute",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-
-                // End call
                 FloatingActionButton(
                     onClick = { viewModel.endCall(); onEndCall() },
                     containerColor = ErrorRed,
                     shape = CircleShape,
-                    modifier = Modifier.size(64.dp)
+                    modifier = Modifier.size(72.dp)
                 ) {
-                    Icon(
-                        Icons.Default.CallEnd,
-                        "End",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
+                    Icon(Icons.Default.CallEnd, "End", tint = Color.White,
+                        modifier = Modifier.size(32.dp))
                 }
 
-                // Speaker
-                FloatingActionButton(
-                    onClick = { },
-                    containerColor = CardBg,
-                    shape = CircleShape,
-                    modifier = Modifier.size(64.dp)
-                ) {
-                    Icon(
-                        Icons.Default.VolumeUp,
-                        "Speaker",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
+                CallControl(
+                    icon = if (isSpeaker) Icons.Default.VolumeUp else Icons.Default.VolumeDown,
+                    label = "Speaker",
+                    active = isSpeaker
+                ) { isSpeaker = !isSpeaker }
             }
+            Spacer(Modifier.height(40.dp))
         }
     }
 }
 
+@Composable
+private fun CallControl(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    active: Boolean,
+    onClick: () -> Unit
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        FloatingActionButton(
+            onClick = onClick,
+            containerColor = if (active) VioletBright else CardBg,
+            shape = CircleShape,
+            modifier = Modifier.size(60.dp)
+        ) {
+            Icon(icon, label, tint = if (active) Color.White else TextPrimary,
+                modifier = Modifier.size(26.dp))
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(label, color = TextSecondary, fontSize = 12.sp)
+    }
+}
+
 private fun formatDuration(seconds: Int): String {
-    val mins = seconds / 60
-    val secs = seconds % 60
-    return "%d:%02d".format(mins, secs)
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    val s = seconds % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
 }
