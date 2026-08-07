@@ -34,7 +34,7 @@ fun LoginScreen(
     onGoToRegister: () -> Unit,
     onSettings: () -> Unit
 ) {
-    var email by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
     val isLoading by viewModel.loading.collectAsState()
@@ -79,11 +79,11 @@ fun LoginScreen(
         )
         Spacer(Modifier.height(48.dp))
 
-        // Email
+        // Username
         OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") },
+            value = username,
+            onValueChange = { username = it },
+            label = { Text("Username") },
             leadingIcon = { Icon(Icons.Default.Person, null) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -131,12 +131,12 @@ fun LoginScreen(
 
         // Login Button
         Button(
-            onClick = { viewModel.login(email, password) },
+            onClick = { viewModel.login(username, password) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(12.dp),
-            enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
+            enabled = !isLoading && username.isNotBlank() && password.isNotBlank(),
             colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
         ) {
             if (isLoading) {
