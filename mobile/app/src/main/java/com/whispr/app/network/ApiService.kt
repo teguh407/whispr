@@ -53,7 +53,7 @@ interface ApiService {
     suspend fun getChats(): Response<List<Chat>>
 
     @POST("api/chats")
-    suspend fun createChat(@Body body: Map<String, Int>): Response<Chat>
+    suspend fun createChat(@Body body: Map<String, String>): Response<Chat>
 
     @GET("api/chats/{id}/messages")
     suspend fun getMessages(@Path("id") chatId: String): Response<List<ChatMessage>>
@@ -91,7 +91,7 @@ interface ApiService {
 
     // Call
     @POST("api/call/start")
-    suspend fun startCall(@Body body: Map<String, Int>): Response<CallSession>
+    suspend fun startCall(@Body body: Map<String, String>): Response<CallSession>
 
     @POST("api/call/{id}/answer")
     suspend fun answerCall(@Path("id") callId: String): Response<Unit>

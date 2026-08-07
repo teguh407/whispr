@@ -96,9 +96,9 @@ fun WhisprNavigation(viewModel: WhisprViewModel = viewModel()) {
 
         composable(
             Screen.Chat.route,
-            arguments = listOf(navArgument("chatId") { type = NavType.IntType })
+            arguments = listOf(navArgument("chatId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val chatId = backStackEntry.arguments?.getInt("chatId") ?: return@composable
+            val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
             ChatScreen(
                 chatId = chatId,
                 viewModel = viewModel,

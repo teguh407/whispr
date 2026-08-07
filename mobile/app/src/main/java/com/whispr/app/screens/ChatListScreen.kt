@@ -27,7 +27,7 @@ import com.whispr.app.viewmodel.WhisprViewModel
 @Composable
 fun ChatListScreen(
     viewModel: WhisprViewModel,
-    onChatClick: (Int) -> Unit,
+    onChatClick: (String) -> Unit,
     onCreateChat: () -> Unit,
     onBack: () -> Unit
 ) {

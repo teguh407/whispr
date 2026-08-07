@@ -33,7 +33,7 @@ import java.time.format.DateTimeFormatter
 fun FeedScreen(
     viewModel: WhisprViewModel,
     onCreatePost: () -> Unit,
-    onPostClick: (Int) -> Unit,
+    onPostClick: (String) -> Unit,
     onNavigate: (String) -> Unit
 ) {
     val posts by viewModel.posts.collectAsState()
@@ -135,7 +135,7 @@ fun PostCard(
     onUpvote: () -> Unit,
     onDelete: () -> Unit,
     onClick: () -> Unit,
-    currentUserId: Int
+    currentUserId: String
 ) {
     Card(
         modifier = Modifier
