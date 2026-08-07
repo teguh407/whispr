@@ -34,7 +34,7 @@ DB_DSN = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost/whi
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 GIPHY_API_KEY = os.getenv("GIPHY_API_KEY", "")  # optional
 MAX_ACCOUNTS = 3
-EDIT_WINDOW_MINUTES = 5
+EDIT_WINDOW_MINUTES = 1440  # 24h — generous edit window
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_DIR, "voice"), exist_ok=True)
@@ -411,7 +411,8 @@ async def list_posts(
         "user_upvoted": r["user_upvoted"],
         "bg_type": r["bg_type"] if "bg_type" in r else "none",
         "bg_value": r["bg_value"] if "bg_value" in r else None,
-        "author": {"username": r["username"], "display_name": r["display_name"], "avatar_url": r["avatar_url"]},
+        "is_mine": str(r["author_id"]) == str(user["id"]),
+        "author": {"id": str(r["author_id"]), "username": r["username"], "display_name": r["display_name"], "avatar_url": r["avatar_url"]},
         "created_at": r["created_at"].isoformat()
     } for r in rows]
 

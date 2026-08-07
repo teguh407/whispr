@@ -37,15 +37,25 @@ fun FeedScreen(
     val posts by viewModel.posts.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+    val error by viewModel.error.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) { viewModel.loadPosts() }
+
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
 
     val greeting = greetingForNow()
     val displayName = currentUser?.displayName ?: "Stranger"
 
     Scaffold(
         containerColor = Background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             WhisprBottomBar(
                 current = "feed",
@@ -134,7 +144,9 @@ fun FeedScreen(
                         post = post,
                         onClick = { onPostClick(post.id) },
                         onUpvote = { viewModel.upvotePost(post.id) },
-                        onReply = { onPostClick(post.id) }
+                        onReply = { onPostClick(post.id) },
+                        onEdit = { newContent -> viewModel.editPost(post.id, newContent) },
+                        onDelete = { viewModel.deletePost(post.id) }
                     )
                 }
             }
@@ -213,10 +225,16 @@ fun PostCard(
     post: Post,
     onClick: () -> Unit,
     onUpvote: () -> Unit,
-    onReply: () -> Unit
+    onReply: () -> Unit,
+    onEdit: (String) -> Unit = {},
+    onDelete: () -> Unit = {}
 ) {
     val authorName = post.author?.displayName ?: post.author?.username ?: "Anonymous"
     val bg = postBackgroundById(if (post.bgType == "gradient") post.bgValue else null)
+    var menuOpen by remember { mutableStateOf(false) }
+    var showEdit by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
     Surface(
         color = CardBg,
         shape = RoundedCornerShape(18.dp),
@@ -236,6 +254,36 @@ fun PostCard(
                     Text("· 2 km away", color = TextTertiary, fontSize = 11.sp)
                 }
                 Text(relativeTime(post.createdAt), color = TextTertiary, fontSize = 11.sp)
+                if (post.isMine) {
+                    Box {
+                        IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Filled.MoreVert, "More", tint = TextTertiary,
+                                modifier = Modifier.size(18.dp))
+                        }
+                        DropdownMenu(
+                            expanded = menuOpen,
+                            onDismissRequest = { menuOpen = false },
+                            modifier = Modifier.background(CardBgAlt)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Edit", color = TextPrimary) },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.Edit, null, tint = TextSecondary,
+                                        modifier = Modifier.size(18.dp))
+                                },
+                                onClick = { menuOpen = false; showEdit = true }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete", color = ErrorRed) },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.DeleteOutline, null, tint = ErrorRed,
+                                        modifier = Modifier.size(18.dp))
+                                },
+                                onClick = { menuOpen = false; showDeleteConfirm = true }
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(Modifier.height(10.dp))
@@ -311,6 +359,63 @@ fun PostCard(
                 }
             }
         }
+    }
+
+    // Edit dialog
+    if (showEdit) {
+        var editText by remember { mutableStateOf(post.content) }
+        AlertDialog(
+            onDismissRequest = { showEdit = false },
+            containerColor = CardBgAlt,
+            title = { Text("Edit whisper", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = {
+                Surface(color = CardBg, shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()) {
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = editText,
+                        onValueChange = { editText = it },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            color = TextPrimary, fontSize = 15.sp, lineHeight = 21.sp),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(VioletBright),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp).padding(12.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (editText.isNotBlank()) onEdit(editText.trim())
+                        showEdit = false
+                    },
+                    enabled = editText.isNotBlank()
+                ) { Text("Save", color = VioletBright, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEdit = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            }
+        )
+    }
+
+    // Delete confirmation
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            containerColor = CardBgAlt,
+            title = { Text("Delete whisper?", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = { Text("This can't be undone.", color = TextSecondary) },
+            confirmButton = {
+                TextButton(onClick = { showDeleteConfirm = false; onDelete() }) {
+                    Text("Delete", color = ErrorRed, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            }
+        )
     }
 }
 

@@ -177,6 +177,14 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { err(e) }
     }
 
+    fun editPost(postId: String, content: String) = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.updatePost(postId, content)
+            if (resp.isSuccessful) loadPosts()
+            else _error.value = "Edit failed: ${resp.code()}"
+        } catch (e: Exception) { err(e) }
+    }
+
     // Chats
     fun loadChats() = viewModelScope.launch {
         try {

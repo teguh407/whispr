@@ -27,8 +27,9 @@ interface ApiService {
     @POST("api/posts")
     suspend fun createPost(@Body request: CreatePostRequest): Response<Post>
 
+    @FormUrlEncoded
     @PUT("api/posts/{id}")
-    suspend fun updatePost(@Path("id") id: String, @Body body: RequestBody): Response<Post>
+    suspend fun updatePost(@Path("id") id: String, @Field("content") content: String): Response<Unit>
 
     @DELETE("api/posts/{id}")
     suspend fun deletePost(@Path("id") id: String): Response<Unit>

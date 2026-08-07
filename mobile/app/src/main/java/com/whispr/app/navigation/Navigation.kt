@@ -68,11 +68,11 @@ fun WhisprNavigation(viewModel: WhisprViewModel = viewModel()) {
                 onNavigate = { route ->
                     when (route) {
                         "feed" -> { /* already here */ }
-                        "explore" -> navController.navigate(Screen.Links.route)
-                        "links" -> navController.navigate(Screen.Links.route)
-                        "accounts" -> navController.navigate(Screen.Accounts.route)
-                        "profile" -> navController.navigate(Screen.Profile.route)
-                        "chats" -> navController.navigate(Screen.ChatList.route)
+                        "explore" -> navController.navigate(Screen.Links.route) { launchSingleTop = true }
+                        "links" -> navController.navigate(Screen.Links.route) { launchSingleTop = true }
+                        "accounts" -> navController.navigate(Screen.Accounts.route) { launchSingleTop = true }
+                        "profile" -> navController.navigate(Screen.Profile.route) { launchSingleTop = true }
+                        "chats" -> navController.navigate(Screen.ChatList.route) { launchSingleTop = true }
                     }
                 }
             )
@@ -91,16 +91,17 @@ fun WhisprNavigation(viewModel: WhisprViewModel = viewModel()) {
                 onChatClick = { chatId ->
                     navController.navigate(Screen.Chat.createRoute(chatId))
                 },
-                onCreateChat = { /* Show user picker */ },
+                onCreateChat = { navController.navigate(Screen.CreatePost.route) },
                 onBack = { navController.popBackStack() },
                 onNavigate = { route ->
                     when (route) {
                         "chats" -> { /* already here */ }
                         "feed" -> navController.navigate(Screen.Feed.route) {
                             popUpTo(Screen.Feed.route) { inclusive = true }
+                            launchSingleTop = true
                         }
-                        "explore" -> navController.navigate(Screen.Links.route)
-                        "profile" -> navController.navigate(Screen.Profile.route)
+                        "explore" -> navController.navigate(Screen.Links.route) { launchSingleTop = true }
+                        "profile" -> navController.navigate(Screen.Profile.route) { launchSingleTop = true }
                     }
                 }
             )
