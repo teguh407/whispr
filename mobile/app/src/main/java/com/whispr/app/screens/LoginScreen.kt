@@ -28,7 +28,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.whispr.app.ui.theme.*
+import com.whispr.app.util.GoogleAuthHelper
 import com.whispr.app.viewmodel.WhisprViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -44,6 +46,7 @@ fun LoginScreen(
     val error by viewModel.error.collectAsState()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) onLoginSuccess()
@@ -165,7 +168,15 @@ fun LoginScreen(
         // Google Sign-In
         Surface(
             onClick = {
-                Toast.makeText(context, "Google Sign-In coming soon", Toast.LENGTH_SHORT).show()
+                scope.launch {
+                    when (val result = GoogleAuthHelper.signIn(context)) {
+                        is GoogleAuthHelper.Result.Success ->
+                            viewModel.googleAuth(result.idToken)
+                        is GoogleAuthHelper.Result.Cancelled -> { /* user closed picker */ }
+                        is GoogleAuthHelper.Result.Error ->
+                            Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+                    }
+                }
             },
             shape = RoundedCornerShape(12.dp),
             color = Color.White,

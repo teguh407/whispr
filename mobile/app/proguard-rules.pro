@@ -71,6 +71,11 @@
 -keep class com.whispr.app.navigation.** { *; }
 -keep class com.whispr.app.network.** { *; }
 
+# ── Credential Manager / Google ID ──
+-keep class androidx.credentials.** { *; }
+-keep class com.google.android.libraries.identity.googleid.** { *; }
+-keepnames class com.google.android.gms.common.annotation.KeepName
+
 # ── General ──
 -keepattributes SourceFile, LineNumberTable
 -renamesourcefileattribute SourceFile
