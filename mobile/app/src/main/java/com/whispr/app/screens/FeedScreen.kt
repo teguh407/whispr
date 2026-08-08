@@ -1,9 +1,12 @@
 package com.whispr.app.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,16 +18,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.whispr.app.data.Post
+import com.whispr.app.data.Story
 import com.whispr.app.data.User
 import com.whispr.app.ui.components.*
 import com.whispr.app.ui.theme.*
 import com.whispr.app.viewmodel.WhisprViewModel
 
-private val feedTabs = listOf("For You", "Nearby", "Following")
+private val feedTabs = listOf("Hot", "Global", "Local", "Confessions")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,10 +44,22 @@ fun FeedScreen(
     val loading by viewModel.loading.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val error by viewModel.error.collectAsState()
+    val stories by viewModel.stories.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(Unit) { viewModel.loadPosts() }
+    LaunchedEffect(Unit) { viewModel.loadPosts(tab = "hot") }
+    LaunchedEffect(Unit) { viewModel.loadStories() }
+
+    LaunchedEffect(selectedTab) {
+        viewModel.loadPosts(tab = when (selectedTab) {
+            0 -> "hot"
+            1 -> "global"
+            2 -> "local"
+            3 -> "confessions"
+            else -> null
+        })
+    }
 
     LaunchedEffect(error) {
         error?.let {
@@ -88,6 +106,12 @@ fun FeedScreen(
                             IconButton(onClick = { onNavigate("explore") }) {
                                 Icon(Icons.Outlined.Search, "Search", tint = TextSecondary)
                             }
+                            IconButton(onClick = { onNavigate("games") }) {
+                                Icon(Icons.Outlined.SportsEsports, "Games", tint = TextSecondary)
+                            }
+                            IconButton(onClick = { onNavigate("stories") }) {
+                                Icon(Icons.Outlined.PhotoCamera, "Stories", tint = TextSecondary)
+                            }
                             IconButton(onClick = { onNavigate("notifications") }) {
                                 Icon(Icons.Outlined.Notifications, "Notifications", tint = TextSecondary)
                             }
@@ -114,6 +138,23 @@ fun FeedScreen(
 
             // Daily Question card
             item { DailyQuestionCard(onJoin = onCreatePost) }
+
+            // Story bar (only when stories exist)
+            if (stories.isNotEmpty()) {
+                item {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(stories, key = { it.id }) { story ->
+                            StoryBarItem(story) { viewModel.viewStory(story.id) }
+                        }
+                    }
+                }
+            }
 
             // Tabs
             item {
@@ -170,6 +211,56 @@ private fun FeedTab(label: String, selected: Boolean, onClick: () -> Unit) {
             fontSize = 13.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+    }
+}
+
+@Composable
+private fun StoryBarItem(story: Story, onClick: () -> Unit) {
+    val authorName = story.author?.displayName?.takeIf { it.isNotBlank() }
+        ?: story.author?.username?.takeIf { it.isNotBlank() } ?: "Ghost"
+    val ringBrush = if (story.viewed) {
+        Brush.linearGradient(listOf(TextTertiary, TextTertiary))
+    } else {
+        Brush.linearGradient(listOf(GradientStart, GradientEnd, PrimaryPink))
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(72.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(ringBrush)
+                .padding(3.dp)
+                .clip(CircleShape)
+                .background(Background)
+                .padding(2.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (story.mediaUrl != null) {
+                AsyncImage(
+                    model = story.mediaUrl,
+                    contentDescription = "Story",
+                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                PersonaAvatar(authorName, size = 52)
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            authorName,
+            color = TextPrimary,
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = 68.dp)
         )
     }
 }

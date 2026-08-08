@@ -3,8 +3,10 @@ package com.whispr.app.screens
 import android.content.Context
 import android.media.MediaRecorder
 import android.os.Build
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -142,7 +144,9 @@ fun ChatScreen(
             ) {
                 items(messages) { msg ->
                     val isMe = msg.senderId == (currentUser?.id ?: "")
-                    MessageBubble(msg, isMe)
+                    MessageBubble(msg, isMe) { messageId, ttl ->
+                        viewModel.setMessageTtl(messageId, ttl)
+                    }
                 }
             }
 
@@ -231,47 +235,93 @@ fun ChatScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MessageBubble(msg: ChatMessage, isMe: Boolean) {
+fun MessageBubble(msg: ChatMessage, isMe: Boolean, onSetTtl: (String, Int) -> Unit) {
+    var showTtlMenu by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
     ) {
-        Surface(
-            shape = RoundedCornerShape(
-                topStart = 18.dp, topEnd = 18.dp,
-                bottomStart = if (isMe) 18.dp else 4.dp,
-                bottomEnd = if (isMe) 4.dp else 18.dp
-            ),
-            color = if (isMe) PrimaryPurple else CardBg,
-            modifier = Modifier.widthIn(max = 280.dp)
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                when (msg.type) {
-                    "voice" -> {
+        Box {
+            Surface(
+                shape = RoundedCornerShape(
+                    topStart = 18.dp, topEnd = 18.dp,
+                    bottomStart = if (isMe) 18.dp else 4.dp,
+                    bottomEnd = if (isMe) 4.dp else 18.dp
+                ),
+                color = if (isMe) PrimaryPurple else CardBg,
+                modifier = Modifier
+                    .widthIn(max = 280.dp)
+                    .combinedClickable(
+                        enabled = isMe && msg.id != null,
+                        onLongClick = { showTtlMenu = true },
+                        onClick = { }
+                    )
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    when (msg.type) {
+                        "voice" -> {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Mic, null,
+                                    tint = if (isMe) Color.White else VioletBright,
+                                    modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Voice message",
+                                    color = if (isMe) Color.White else TextPrimary, fontSize = 13.sp)
+                            }
+                        }
+                        "photo" -> Text("📷 Photo", color = if (isMe) Color.White else TextPrimary)
+                        "gif" -> Text("🎬 GIF", color = if (isMe) Color.White else TextPrimary)
+                        else -> Text(msg.content,
+                            color = if (isMe) Color.White else TextPrimary, lineHeight = 20.sp,
+                            fontSize = 15.sp)
+                    }
+                    if (msg.ttlSeconds != null) {
+                        Spacer(Modifier.height(6.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Mic, null,
-                                tint = if (isMe) Color.White else VioletBright,
-                                modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Voice message",
-                                color = if (isMe) Color.White else TextPrimary, fontSize = 13.sp)
+                            Icon(Icons.Default.Timer, null,
+                                tint = if (isMe) Color.White else AccentTeal,
+                                modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Auto-destruct ${msg.ttlSeconds}s",
+                                color = if (isMe) Color.White else AccentTeal,
+                                fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         }
                     }
-                    "photo" -> Text("📷 Photo", color = if (isMe) Color.White else TextPrimary)
-                    "gif" -> Text("🎬 GIF", color = if (isMe) Color.White else TextPrimary)
-                    else -> Text(msg.content,
-                        color = if (isMe) Color.White else TextPrimary, lineHeight = 20.sp,
-                        fontSize = 15.sp)
                 }
             }
+            // Auto-destruct timer selector popup
+            DropdownMenu(
+                expanded = showTtlMenu,
+                onDismissRequest = { showTtlMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Auto-destruct in 5s") },
+                    onClick = { msg.id?.let { onSetTtl(it, 5) }; showTtlMenu = false }
+                )
+                DropdownMenuItem(
+                    text = { Text("Auto-destruct in 10s") },
+                    onClick = { msg.id?.let { onSetTtl(it, 10) }; showTtlMenu = false }
+                )
+                DropdownMenuItem(
+                    text = { Text("Auto-destruct in 30s") },
+                    onClick = { msg.id?.let { onSetTtl(it, 30) }; showTtlMenu = false }
+                )
+            }
         }
-        Text(
-            formatBubbleTime(msg.createdAt),
-            color = TextTertiary,
-            fontSize = 10.sp,
+        // Timestamp + small timer indicator for TTL messages
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
+        ) {
+            Text(formatBubbleTime(msg.createdAt), color = TextTertiary, fontSize = 10.sp)
+            if (msg.ttlSeconds != null) {
+                Spacer(Modifier.width(4.dp))
+                Icon(Icons.Default.Timer, null, tint = AccentTeal, modifier = Modifier.size(11.dp))
+                Text("${msg.ttlSeconds}s", color = AccentTeal, fontSize = 10.sp)
+            }
+        }
     }
 }
 

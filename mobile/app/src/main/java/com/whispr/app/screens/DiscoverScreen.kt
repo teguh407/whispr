@@ -1,0 +1,491 @@
+package com.whispr.app.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.whispr.app.data.DiscoverUser
+import com.whispr.app.ui.components.PersonaAvatar
+import com.whispr.app.ui.components.TagChip
+import com.whispr.app.ui.components.WhisprBottomBar
+import com.whispr.app.ui.theme.*
+import com.whispr.app.viewmodel.WhisprViewModel
+
+// ── Filter option catalogs ──
+
+private data class RadiusOption(val label: String, val km: Int?)
+private val radiusOptions = listOf(
+    RadiusOption("5 km", 5),
+    RadiusOption("25 km", 25),
+    RadiusOption("100 km", 100),
+    RadiusOption("Anywhere", null)
+)
+
+private data class KarmaOption(val label: String, val min: Int?)
+private val karmaOptions = listOf(
+    KarmaOption("Any karma", null),
+    KarmaOption("100+", 100),
+    KarmaOption("500+", 500),
+    KarmaOption("1k+", 1000)
+)
+
+private val genderOptions = listOf("All", "Male", "Female", "Other")
+private val interestOptions = listOf(
+    "Music", "Gaming", "Movies", "Tech", "Travel",
+    "Art", "Food", "Fitness", "Books", "Anime"
+)
+
+private const val AGE_MIN = 18f
+private const val AGE_MAX = 80f
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DiscoverScreen(
+    viewModel: WhisprViewModel,
+    onMessage: (String) -> Unit = {},
+    onNavigate: (String) -> Unit = {},
+    onCreate: () -> Unit = {}
+) {
+    val users by viewModel.discoverUsers.collectAsState()
+    val loading by viewModel.loading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Filter state
+    var selectedRadius by remember { mutableStateOf(radiusOptions.last()) }   // Anywhere
+    var selectedInterest by remember { mutableStateOf<String?>(null) }
+    var selectedKarma by remember { mutableStateOf(karmaOptions.first()) }   // Any
+    var selectedGender by remember { mutableStateOf("All") }
+    var ageRange by remember { mutableStateOf(AGE_MIN..AGE_MAX) }
+    var query by remember { mutableStateOf("") }
+
+    fun applyFilters() {
+        val minAge = if (ageRange.start <= AGE_MIN) null else ageRange.start.toInt()
+        val maxAge = if (ageRange.endInclusive >= AGE_MAX) null else ageRange.endInclusive.toInt()
+        viewModel.loadDiscoverUsers(
+            radiusKm = selectedRadius.km,
+            interests = selectedInterest,
+            minKarma = selectedKarma.min,
+            gender = if (selectedGender == "All") null else selectedGender.lowercase(),
+            minAge = minAge,
+            maxAge = maxAge
+        )
+    }
+
+    fun resetFilters() {
+        selectedRadius = radiusOptions.last()
+        selectedInterest = null
+        selectedKarma = karmaOptions.first()
+        selectedGender = "All"
+        ageRange = AGE_MIN..AGE_MAX
+        query = ""
+        applyFilters()
+    }
+
+    val handleMessage: (String) -> Unit = { userId ->
+        viewModel.createChat(userId)
+        onMessage(userId)
+    }
+
+    // Client-side name search layered over server-filtered results
+    val filtered = users.filter {
+        query.isBlank() ||
+            it.displayName?.contains(query, ignoreCase = true) == true ||
+            it.username.contains(query, ignoreCase = true)
+    }
+
+    LaunchedEffect(Unit) { applyFilters() }
+
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
+
+    Scaffold(
+        containerColor = Background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            WhisprBottomBar(current = "explore", onNavigate = onNavigate, onCreate = onCreate)
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(bottom = 16.dp)
+        ) {
+            // ── Header ──
+            item {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Text(
+                        "Discover",
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = TextPrimary
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "Find ghosts nearby who share your vibe",
+                        fontSize = 13.sp,
+                        color = TextSecondary
+                    )
+                }
+            }
+
+            // ── Search bar ──
+            item {
+                Surface(
+                    color = CardBg,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .height(46.dp)
+                ) {
+                    Row(
+                        Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.Search, null, tint = TextTertiary, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        SearchField(
+                            value = query,
+                            onValueChange = { query = it },
+                            placeholder = "Search by name"
+                        )
+                    }
+                }
+            }
+
+            // ── Distance ──
+            item {
+                ChipRow(
+                    label = "Distance",
+                    options = radiusOptions.map { it.label },
+                    selected = selectedRadius.label,
+                    onSelect = { label ->
+                        radiusOptions.firstOrNull { it.label == label }?.let {
+                            selectedRadius = it
+                            applyFilters()
+                        }
+                    }
+                )
+            }
+
+            // ── Interests ──
+            item {
+                ChipRow(
+                    label = "Interests",
+                    options = interestOptions,
+                    selected = selectedInterest,
+                    onSelect = { opt ->
+                        selectedInterest = if (selectedInterest == opt) null else opt
+                        applyFilters()
+                    }
+                )
+            }
+
+            // ── Minimum karma ──
+            item {
+                ChipRow(
+                    label = "Minimum karma",
+                    options = karmaOptions.map { it.label },
+                    selected = selectedKarma.label,
+                    onSelect = { label ->
+                        karmaOptions.firstOrNull { it.label == label }?.let {
+                            selectedKarma = it
+                            applyFilters()
+                        }
+                    }
+                )
+            }
+
+            // ── Gender ──
+            item {
+                ChipRow(
+                    label = "Gender",
+                    options = genderOptions,
+                    selected = selectedGender,
+                    onSelect = { selectedGender = it; applyFilters() }
+                )
+            }
+
+            // ── Age range ──
+            item {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Age range", color = TextSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "${ageRange.start.toInt()} – ${ageRange.endInclusive.toInt()}",
+                            color = VioletBright, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    RangeSlider(
+                        value = ageRange,
+                        onValueChange = { ageRange = it },
+                        onValueChangeFinished = { applyFilters() },
+                        valueRange = AGE_MIN..AGE_MAX,
+                        colors = SliderDefaults.colors(
+                            thumbColor = VioletBright,
+                            activeTrackColor = PrimaryPurple,
+                            inactiveTrackColor = ChipBg
+                        )
+                    )
+                }
+            }
+
+            // ── Results header ──
+            item {
+                Divider(color = ChipBg, thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${filtered.size} ghosts found",
+                            color = TextSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+                        )
+                        if (loading) {
+                            Spacer(Modifier.width(8.dp))
+                            CircularProgressIndicator(
+                                color = VioletBright,
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    }
+                    TextButton(onClick = { resetFilters() }, contentPadding = PaddingValues(0.dp)) {
+                        Text("Reset", color = VioletBright, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+
+            // ── Results ──
+            if (loading && filtered.isEmpty()) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = VioletBright)
+                    }
+                }
+            } else if (filtered.isEmpty()) {
+                item { EmptyDiscover() }
+            } else {
+                items(filtered, key = { it.id }) { user ->
+                    DiscoverUserCard(user, onMessage = handleMessage)
+                }
+            }
+        }
+    }
+}
+
+// ── User card ──
+
+@Composable
+private fun DiscoverUserCard(user: DiscoverUser, onMessage: (String) -> Unit) {
+    val name = user.displayName?.takeIf { it.isNotBlank() } ?: user.username
+    val meta = buildList {
+        add("@${user.username}")
+        user.age?.let { add("$it yrs") }
+        user.gender?.let { add(it.replaceFirstChar { c -> c.uppercase() }) }
+        user.distanceKm?.let { add(formatDistance(it)) }
+    }.joinToString("  ·  ")
+
+    Surface(
+        color = CardBg,
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PersonaAvatar(name, size = 56)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            name,
+                            color = TextPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Star, null, tint = VioletBright, modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(3.dp))
+                            Text(
+                                "${user.karma}",
+                                color = VioletBright,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        meta,
+                        color = TextTertiary,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            if (!user.bio.isNullOrBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    user.bio!!,
+                    color = TextSecondary,
+                    fontSize = 13.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (user.interests.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    user.interests.take(4).forEach { TagChip(it) }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                color = Color.Transparent,
+                shape = RoundedCornerShape(12.dp),
+                onClick = { onMessage(user.id) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Brush.linearGradient(listOf(GradientStart, GradientEnd)))
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Send, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Say hi", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Filter chip row (wrapping) ──
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ChipRow(
+    label: String,
+    options: List<String>,
+    selected: String?,
+    onSelect: (String) -> Unit
+) {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text(label, color = TextSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(6.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { opt ->
+                SelectionChip(
+                    label = opt,
+                    selected = selected == opt,
+                    onClick = { onSelect(opt) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectionChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val bg = if (selected) PrimaryPurple.copy(alpha = 0.22f) else ChipBg
+    val fg = if (selected) VioletBright else TextSecondary
+    Surface(
+        color = bg,
+        shape = RoundedCornerShape(50),
+        onClick = onClick,
+        modifier = Modifier.clip(RoundedCornerShape(50))
+    ) {
+        Text(
+            label,
+            color = fg,
+            fontSize = 12.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+        )
+    }
+}
+
+// ── Search field ──
+
+@Composable
+private fun SearchField(value: String, onValueChange: (String) -> Unit, placeholder: String) {
+    androidx.compose.foundation.text.BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        textStyle = androidx.compose.ui.text.TextStyle(color = TextPrimary, fontSize = 14.sp),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(VioletBright),
+        decorationBox = { inner ->
+            if (value.isEmpty()) Text(placeholder, color = TextTertiary, fontSize = 14.sp)
+            inner()
+        }
+    )
+}
+
+// ── Empty state ──
+
+@Composable
+private fun EmptyDiscover() {
+    Column(
+        Modifier.fillMaxWidth().padding(top = 60.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(Icons.Outlined.Explore, null, tint = TextTertiary, modifier = Modifier.size(48.dp))
+        Spacer(Modifier.height(12.dp))
+        Text("No ghosts found", color = TextSecondary, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+        Spacer(Modifier.height(4.dp))
+        Text("Try widening your radius or adjusting filters.", color = TextTertiary, fontSize = 13.sp)
+    }
+}
+
+// ── helpers ──
+
+private fun formatDistance(km: Double): String = when {
+    km < 1.0 -> "${(km * 1000).toInt()} m away"
+    km < 10.0 -> String.format("%.1f km away", km)
+    else -> "${km.toInt()} km away"
+}

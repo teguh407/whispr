@@ -20,8 +20,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.whispr.app.data.KarmaLogEntry
 import com.whispr.app.ui.theme.*
 import com.whispr.app.viewmodel.WhisprViewModel
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,15 +36,22 @@ fun ProfileScreen(
     onChats: () -> Unit
 ) {
     val user by viewModel.currentUser.collectAsState()
+    val karmaResp by viewModel.karma.collectAsState()
+    val karmaLog by viewModel.karmaLog.collectAsState()
     var displayName by remember(user) { mutableStateOf(user?.displayName ?: "") }
     var bio by remember(user) { mutableStateOf(user?.bio ?: "") }
     var editing by remember { mutableStateOf(false) }
 
+    LaunchedEffect(Unit) {
+        viewModel.loadKarma()
+        viewModel.loadKarmaLog()
+    }
+
     // Derived "ghost" identity from real backend fields.
-    val karma = user?.karma ?: 0
+    val karma = karmaResp?.karma ?: user?.karma ?: 0
     val days = user?.daysActive ?: 0
     val posts = user?.postsCount ?: 0
-    val level = (karma / 100) + 1
+    val level = karmaResp?.level ?: "Newcomer"
     val trustScore = 500 + karma * 2 + days * 5
     val whisprId = "#" + (user?.id?.take(7)?.uppercase() ?: "0000000")
 
@@ -125,7 +135,7 @@ fun ProfileScreen(
 
                 // Level + Trust badges
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    BadgePill("Level $level Ghost", Icons.Default.Shield, PrimaryPurple)
+                    BadgePill("Level: $level", Icons.Default.Shield, PrimaryPurple)
                     BadgePill("Trust $trustScore", Icons.Default.Verified, AccentTeal)
                 }
                 Spacer(Modifier.height(8.dp))
@@ -159,7 +169,27 @@ fun ProfileScreen(
                         RepRow("Posts shared", "$posts", Icons.Default.Article)
                         RepRow("Karma earned", "$karma", Icons.Default.Star)
                         RepRow("Trust score", "$trustScore", Icons.Default.Verified)
-                        RepRow("Level", "Ghost $level", Icons.Default.Shield, last = true)
+                        RepRow("Level", level, Icons.Default.Shield, last = true)
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                // Karma Log
+                SectionHeader("Karma Log")
+                Surface(color = CardBg, shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        if (karmaLog.isEmpty()) {
+                            Text("No karma activity yet", color = TextSecondary, fontSize = 13.sp)
+                        } else {
+                            karmaLog.forEachIndexed { index, entry ->
+                                KarmaLogRow(entry)
+                                if (index < karmaLog.lastIndex) {
+                                    Divider(color = Background, thickness = 1.dp)
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -334,4 +364,42 @@ private fun PremiumPerk(text: String) {
         Spacer(Modifier.width(8.dp))
         Text(text, color = Color.White.copy(alpha = 0.95f), fontSize = 13.sp)
     }
+}
+
+@Composable
+private fun KarmaLogRow(entry: KarmaLogEntry) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            if (entry.amount >= 0) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
+            null,
+            tint = if (entry.amount >= 0) SuccessGreen else ErrorRed,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(entry.reason, color = TextPrimary, fontSize = 14.sp)
+            entry.createdAt?.let {
+                Text(formatKarmaTime(it), color = TextTertiary, fontSize = 11.sp)
+            }
+        }
+        Text(
+            (if (entry.amount >= 0) "+" else "") + entry.amount,
+            color = if (entry.amount >= 0) SuccessGreen else ErrorRed,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+private fun formatKarmaTime(iso: String?): String {
+    if (iso.isNullOrBlank()) return ""
+    return try {
+        val date = java.util.Date(
+            java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli()
+        )
+        SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()).format(date)
+    } catch (e: Exception) { "" }
 }

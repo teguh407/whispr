@@ -24,6 +24,13 @@ sealed class Screen(val route: String) {
     object GifPicker : Screen("gif_picker")
     object Settings : Screen("settings")
     object Blocks : Screen("blocks")
+    object Discover : Screen("discover")
+    object Groups : Screen("groups")
+    object GroupChat : Screen("group_chat/{groupId}") {
+        fun createRoute(groupId: String) = "group_chat/$groupId"
+    }
+    object Games : Screen("games")
+    object Stories : Screen("stories")
 }
 
 @Composable
@@ -68,7 +75,11 @@ fun WhisprNavigation(viewModel: WhisprViewModel = viewModel()) {
                 onNavigate = { route ->
                     when (route) {
                         "feed" -> { /* already here */ }
-                        "explore" -> navController.navigate(Screen.Links.route) { launchSingleTop = true }
+                        "explore" -> navController.navigate(Screen.Discover.route) { launchSingleTop = true }
+                        "discover" -> navController.navigate(Screen.Discover.route) { launchSingleTop = true }
+                        "groups" -> navController.navigate(Screen.Groups.route) { launchSingleTop = true }
+                        "games" -> navController.navigate(Screen.Games.route) { launchSingleTop = true }
+                        "stories" -> navController.navigate(Screen.Stories.route) { launchSingleTop = true }
                         "links" -> navController.navigate(Screen.Links.route) { launchSingleTop = true }
                         "accounts" -> navController.navigate(Screen.Accounts.route) { launchSingleTop = true }
                         "profile" -> navController.navigate(Screen.Profile.route) { launchSingleTop = true }
@@ -100,7 +111,8 @@ fun WhisprNavigation(viewModel: WhisprViewModel = viewModel()) {
                             popUpTo(Screen.Feed.route) { inclusive = true }
                             launchSingleTop = true
                         }
-                        "explore" -> navController.navigate(Screen.Links.route) { launchSingleTop = true }
+                        "explore" -> navController.navigate(Screen.Discover.route) { launchSingleTop = true }
+                        "discover" -> navController.navigate(Screen.Discover.route) { launchSingleTop = true }
                         "profile" -> navController.navigate(Screen.Profile.route) { launchSingleTop = true }
                     }
                 }
@@ -171,6 +183,73 @@ fun WhisprNavigation(viewModel: WhisprViewModel = viewModel()) {
             BlocksScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Discover.route) {
+            DiscoverScreen(
+                viewModel = viewModel,
+                onMessage = { userId ->
+                    navController.navigate(Screen.Chat.createRoute(userId))
+                },
+                onNavigate = { route ->
+                    when (route) {
+                        "feed" -> navController.navigate(Screen.Feed.route) {
+                            popUpTo(Screen.Feed.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                        "chats" -> navController.navigate(Screen.ChatList.route) { launchSingleTop = true }
+                        "profile" -> navController.navigate(Screen.Profile.route) { launchSingleTop = true }
+                    }
+                },
+                onCreate = { navController.navigate(Screen.CreatePost.route) }
+            )
+        }
+
+        composable(Screen.Groups.route) {
+            GroupsScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onGroupClick = { groupId ->
+                    navController.navigate(Screen.GroupChat.createRoute(groupId))
+                }
+            )
+        }
+
+        composable(
+            Screen.GroupChat.route,
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+            GroupChatScreen(
+                groupId = groupId,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Games.route) {
+            GamesScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Stories.route) {
+            StoriesScreen(
+                viewModel = viewModel,
+                onNavigate = { route ->
+                    when (route) {
+                        "feed" -> navController.navigate(Screen.Feed.route) {
+                            popUpTo(Screen.Feed.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                        "explore" -> navController.navigate(Screen.Discover.route) { launchSingleTop = true }
+                        "chats" -> navController.navigate(Screen.ChatList.route) { launchSingleTop = true }
+                        "profile" -> navController.navigate(Screen.Profile.route) { launchSingleTop = true }
+                    }
+                },
+                onCreate = { navController.navigate(Screen.CreatePost.route) }
             )
         }
 

@@ -14,6 +14,20 @@ data class AuthResponse(
     val user: User? = null
 )
 
+// Google Auth
+data class GoogleAuthRequest(@SerializedName("id_token") val idToken: String)
+data class KarmaResponse(
+    val karma: Int = 0,
+    val level: String = "Newcomer",
+    @SerializedName("next_level_at") val nextLevelAt: Int? = null
+)
+data class KarmaLogEntry(
+    val id: String = "",
+    val amount: Int = 0,
+    val reason: String = "",
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
 // User
 data class User(
     val id: String = "",
@@ -24,7 +38,10 @@ data class User(
     val karma: Int = 0,
     @SerializedName("days_active") val daysActive: Int = 0,
     @SerializedName("posts_count") val postsCount: Int = 0,
-    @SerializedName("created_at") val createdAt: String? = null
+    @SerializedName("created_at") val createdAt: String? = null,
+    val age: Int? = null,
+    val gender: String? = null,
+    val interests: List<String> = emptyList()
 )
 
 data class ProfileUpdate(
@@ -67,6 +84,40 @@ data class CreatePostRequest(
     val mood: String? = null
 )
 
+// Poll
+data class PollOption(
+    val id: String = "",
+    val text: String = "",
+    val votes: Int = 0
+)
+data class Poll(
+    val id: String = "",
+    val question: String = "",
+    val options: List<PollOption> = emptyList(),
+    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("user_voted") val userVoted: String? = null
+)
+data class CreatePollRequest(
+    val question: String,
+    val options: List<String>
+)
+data class PollVoteRequest(
+    @SerializedName("option_id") val optionId: String
+)
+
+// Story
+data class Story(
+    val id: String = "",
+    @SerializedName("media_url") val mediaUrl: String? = null,
+    @SerializedName("media_type") val mediaType: String = "image",
+    val caption: String? = null,
+    val author: User? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("expires_at") val expiresAt: String? = null,
+    @SerializedName("viewed") val viewed: Boolean = false,
+    @SerializedName("view_count") val viewCount: Int = 0
+)
+
 // Chat
 data class Chat(
     val id: String = "",
@@ -83,7 +134,9 @@ data class ChatMessage(
     val content: String = "",
     val type: String = "text",
     @SerializedName("media_url") val mediaUrl: String? = null,
-    @SerializedName("created_at") val createdAt: String? = null
+    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("ttl_seconds") val ttlSeconds: Int? = null,
+    @SerializedName("expires_at") val expiresAt: String? = null
 )
 
 data class WsMessage(
@@ -145,4 +198,71 @@ data class CallSignal(
     val type: String,
     val data: Any? = null,
     @SerializedName("call_id") val callId: String? = null
+)
+
+// Discovery
+data class DiscoverUser(
+    val id: String = "",
+    val username: String = "",
+    @SerializedName("display_name") val displayName: String? = null,
+    val bio: String? = null,
+    @SerializedName("avatar_url") val avatarUrl: String? = null,
+    val karma: Int = 0,
+    @SerializedName("distance_km") val distanceKm: Double? = null,
+    val interests: List<String> = emptyList(),
+    val age: Int? = null,
+    val gender: String? = null
+)
+
+// Groups
+data class Group(
+    val id: String = "",
+    val name: String = "",
+    val description: String? = null,
+    @SerializedName("member_count") val memberCount: Int = 0,
+    val topic: String? = null,
+    @SerializedName("is_member") val isMember: Boolean = false,
+    @SerializedName("created_at") val createdAt: String? = null
+)
+data class CreateGroupRequest(
+    val name: String,
+    val description: String? = null,
+    val topic: String? = null
+)
+data class GroupMessage(
+    val id: String? = null,
+    @SerializedName("sender_id") val senderId: String = "",
+    @SerializedName("sender_name") val senderName: String = "",
+    val content: String = "",
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
+// Games
+data class GameMode(
+    val id: String,
+    val name: String,
+    val description: String,
+    val icon: String
+)
+data class GamePrompt(
+    val id: String = "",
+    val text: String = "",
+    @SerializedName("game_mode") val gameMode: String = ""
+)
+data class GameAnswer(
+    val id: String = "",
+    @SerializedName("prompt_id") val promptId: String = "",
+    val text: String = "",
+    @SerializedName("user_id") val userId: String = ""
+)
+data class SubmitAnswerRequest(
+    @SerializedName("prompt_id") val promptId: String,
+    val text: String
+)
+data class GameSession(
+    val id: String = "",
+    @SerializedName("game_mode") val gameMode: String = "",
+    @SerializedName("current_prompt") val currentPrompt: GamePrompt? = null,
+    @SerializedName("answers") val answers: List<GameAnswer> = emptyList(),
+    @SerializedName("is_active") val isActive: Boolean = true
 )

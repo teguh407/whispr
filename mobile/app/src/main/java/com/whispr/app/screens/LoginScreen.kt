@@ -1,10 +1,12 @@
 package com.whispr.app.screens
 
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -17,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -40,6 +43,7 @@ fun LoginScreen(
     val isLoading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+    val context = LocalContext.current
 
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) onLoginSuccess()
@@ -143,6 +147,54 @@ fun LoginScreen(
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
             } else {
                 Text("Login", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+
+        // Divider
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
+            Text("  or  ", color = TextSecondary, fontSize = 12.sp)
+            Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
+        }
+        Spacer(Modifier.height(16.dp))
+
+        // Google Sign-In
+        Surface(
+            onClick = {
+                Toast.makeText(context, "Google Sign-In coming soon", Toast.LENGTH_SHORT).show()
+            },
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Stylized Google "G" logo
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("G", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4285F4))
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "Continue with Google",
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
         Spacer(Modifier.height(16.dp))

@@ -65,6 +65,39 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     private val _activeCall = MutableStateFlow<CallSession?>(null)
     val activeCall: StateFlow<CallSession?> = _activeCall
 
+    // Karma
+    private val _karma = MutableStateFlow<KarmaResponse?>(null)
+    val karma: StateFlow<KarmaResponse?> = _karma
+
+    private val _karmaLog = MutableStateFlow<List<KarmaLogEntry>>(emptyList())
+    val karmaLog: StateFlow<List<KarmaLogEntry>> = _karmaLog
+
+    // Discover
+    private val _discoverUsers = MutableStateFlow<List<DiscoverUser>>(emptyList())
+    val discoverUsers: StateFlow<List<DiscoverUser>> = _discoverUsers
+
+    // Polls
+    private val _polls = MutableStateFlow<List<Poll>>(emptyList())
+    val polls: StateFlow<List<Poll>> = _polls
+
+    // Stories
+    private val _stories = MutableStateFlow<List<Story>>(emptyList())
+    val stories: StateFlow<List<Story>> = _stories
+
+    // Groups
+    private val _groups = MutableStateFlow<List<Group>>(emptyList())
+    val groups: StateFlow<List<Group>> = _groups
+
+    private val _groupMessages = MutableStateFlow<List<GroupMessage>>(emptyList())
+    val groupMessages: StateFlow<List<GroupMessage>> = _groupMessages
+
+    // Games
+    private val _gameModes = MutableStateFlow<List<GameMode>>(emptyList())
+    val gameModes: StateFlow<List<GameMode>> = _gameModes
+
+    private val _activeGame = MutableStateFlow<GameSession?>(null)
+    val activeGame: StateFlow<GameSession?> = _activeGame
+
     init {
         viewModelScope.launch {
             val savedUrl = TokenStore.getBaseUrl(ctx())
@@ -125,11 +158,35 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         _loading.value = false
     }
 
+    fun googleAuth(idToken: String) = viewModelScope.launch {
+        _loading.value = true
+        try {
+            val resp = ApiClient.api.googleAuth(GoogleAuthRequest(idToken))
+            if (resp.isSuccessful) {
+                resp.body()?.let {
+                    TokenStore.saveToken(ctx(), it.token)
+                    ApiClient.setToken(it.token)
+                    _currentUser.value = it.user ?: ApiClient.api.getMe().body()
+                    _isLoggedIn.value = true
+                }
+            } else {
+                _error.value = "Google auth failed: ${resp.code()}"
+            }
+        } catch (e: Exception) { err(e) }
+        _loading.value = false
+    }
+
     fun logout() = viewModelScope.launch {
         TokenStore.clearToken(ctx())
         ApiClient.setToken(null)
         _currentUser.value = null
         _isLoggedIn.value = false
+        _karma.value = null
+        _karmaLog.value = emptyList()
+        _discoverUsers.value = emptyList()
+        _groups.value = emptyList()
+        _stories.value = emptyList()
+        _activeGame.value = null
     }
 
     fun setBaseUrl(url: String) = viewModelScope.launch {
@@ -146,10 +203,10 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // Posts
-    fun loadPosts(tag: String? = null) = viewModelScope.launch {
+    fun loadPosts(tag: String? = null, tab: String? = null) = viewModelScope.launch {
         _loading.value = true
         try {
-            val resp = ApiClient.api.getPosts(tag)
+            val resp = ApiClient.api.getPosts(tag, tab)
             if (resp.isSuccessful) _posts.value = resp.body() ?: emptyList()
         } catch (e: Exception) { err(e) }
         _loading.value = false
@@ -210,6 +267,13 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
 
     fun addMessage(message: ChatMessage) {
         _messages.value = _messages.value + message
+    }
+
+    fun setMessageTtl(messageId: String, ttlSeconds: Int) = viewModelScope.launch {
+        try {
+            ApiClient.api.setMessageTtl(messageId, ttlSeconds)
+            _error.value = "Auto-destruct set: ${ttlSeconds}s"
+        } catch (e: Exception) { err(e) }
     }
 
     // Upload
@@ -315,5 +379,137 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
             try { ApiClient.api.endCall(call.id) } catch (_: Exception) {}
         }
         _activeCall.value = null
+    }
+
+    // Karma
+    fun loadKarma() = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.getKarma()
+            if (resp.isSuccessful) _karma.value = resp.body()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun loadKarmaLog() = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.getKarmaLog()
+            if (resp.isSuccessful) _karmaLog.value = resp.body() ?: emptyList()
+        } catch (e: Exception) { err(e) }
+    }
+
+    // Discover
+    fun loadDiscoverUsers(
+        radiusKm: Int? = null,
+        interests: String? = null,
+        minKarma: Int? = null,
+        gender: String? = null,
+        minAge: Int? = null,
+        maxAge: Int? = null
+    ) = viewModelScope.launch {
+        _loading.value = true
+        try {
+            val resp = ApiClient.api.getDiscoverUsers(radiusKm, interests, minKarma, gender, minAge, maxAge)
+            if (resp.isSuccessful) _discoverUsers.value = resp.body() ?: emptyList()
+        } catch (e: Exception) { err(e) }
+        _loading.value = false
+    }
+
+    // Polls
+    fun createPoll(question: String, options: List<String>) = viewModelScope.launch {
+        try {
+            ApiClient.api.createPoll(CreatePollRequest(question, options))
+            _error.value = "Poll created"
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun votePoll(pollId: String, optionId: String) = viewModelScope.launch {
+        try {
+            ApiClient.api.votePoll(pollId, PollVoteRequest(optionId))
+            _error.value = "Vote submitted"
+        } catch (e: Exception) { err(e) }
+    }
+
+    // Stories
+    fun loadStories() = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.getStories()
+            if (resp.isSuccessful) _stories.value = resp.body() ?: emptyList()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun viewStory(storyId: String) = viewModelScope.launch {
+        try {
+            ApiClient.api.viewStory(storyId)
+        } catch (e: Exception) { err(e) }
+    }
+
+    // Groups
+    fun loadGroups() = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.getGroups()
+            if (resp.isSuccessful) _groups.value = resp.body() ?: emptyList()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun createGroup(name: String, description: String?, topic: String?) = viewModelScope.launch {
+        try {
+            ApiClient.api.createGroup(CreateGroupRequest(name, description, topic))
+            loadGroups()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun joinGroup(groupId: String) = viewModelScope.launch {
+        try {
+            ApiClient.api.joinGroup(groupId)
+            loadGroups()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun leaveGroup(groupId: String) = viewModelScope.launch {
+        try {
+            ApiClient.api.leaveGroup(groupId)
+            loadGroups()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun loadGroupMessages(groupId: String) = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.getGroupMessages(groupId)
+            if (resp.isSuccessful) _groupMessages.value = resp.body() ?: emptyList()
+        } catch (e: Exception) { err(e) }
+    }
+
+    // Games
+    fun loadGameModes() = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.getGameModes()
+            if (resp.isSuccessful) _gameModes.value = resp.body() ?: emptyList()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun startGame(modeId: String) = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.startGame(mapOf("mode" to modeId))
+            if (resp.isSuccessful) _activeGame.value = resp.body()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun submitGameAnswer(gameId: String, promptId: String, text: String) = viewModelScope.launch {
+        try {
+            ApiClient.api.submitGameAnswer(gameId, SubmitAnswerRequest(promptId, text))
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun nextPrompt(gameId: String) = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.nextPrompt(gameId)
+            if (resp.isSuccessful) _activeGame.value = resp.body()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun endGame(gameId: String) = viewModelScope.launch {
+        try {
+            ApiClient.api.endGame(gameId)
+            _activeGame.value = null
+        } catch (e: Exception) { err(e) }
     }
 }
