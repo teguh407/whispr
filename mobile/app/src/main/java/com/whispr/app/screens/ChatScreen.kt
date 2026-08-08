@@ -71,6 +71,7 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     var isRecording by remember { mutableStateOf(false) }
     var mediaRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var recordedFile by remember { mutableStateOf<File?>(null) }
     var ws by remember { mutableStateOf<WebSocket?>(null) }
 
     // Anti-screenshot: FLAG_SECURE on the hosting Activity window
@@ -305,10 +306,31 @@ fun ChatScreen(
                             mediaRecorder?.release()
                             mediaRecorder = null
                             isRecording = false
+                            // Upload recorded voice note and send via WebSocket
+                            recordedFile?.let { vfile ->
+                                if (vfile.exists() && vfile.length() > 0) {
+                                    viewModel.uploadVoice(vfile) { resp ->
+                                        if (resp != null) {
+                                            val wsMsg = WsMessage(
+                                                type = "voice",
+                                                mediaUrl = resp.url
+                                            )
+                                            ws?.send(Gson().toJson(wsMsg))
+                                            viewModel.addMessage(
+                                                ChatMessage(
+                                                    senderId = currentUser?.id ?: "",
+                                                    type = "voice",
+                                                    mediaUrl = resp.url
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         } catch (_: Exception) { mediaRecorder = null; isRecording = false }
                     } else {
                         try {
-                            val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.3gp")
+                            val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
                             val mr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                 MediaRecorder(context)
                             } else {
@@ -316,12 +338,15 @@ fun ChatScreen(
                                 MediaRecorder()
                             }
                             mr.setAudioSource(MediaRecorder.AudioSource.MIC)
-                            mr.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-                            mr.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+                            mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                            mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                            mr.setAudioEncodingBitRate(128000)
+                            mr.setAudioSamplingRate(44100)
                             mr.setOutputFile(file.absolutePath)
                             mr.prepare()
                             mr.start()
                             mediaRecorder = mr
+                            recordedFile = file
                             isRecording = true
                         } catch (_: Exception) {}
                     }
@@ -409,16 +434,7 @@ fun MessageBubble(msg: ChatMessage, isMe: Boolean, onSetTtl: (String, Int) -> Un
             ) {
                 Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                     when (msg.type) {
-                        "voice" -> {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Mic, null,
-                                    tint = if (isMe) Color.White else VioletBright,
-                                    modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("Voice message",
-                                    color = if (isMe) Color.White else TextPrimary, fontSize = 13.sp)
-                            }
-                        }
+                        "voice" -> VoiceBubbleContent(msg, isMe)
                         "photo" -> PhotoBubbleContent(msg, isMe)
                         "document" -> DocumentBubbleContent(msg, isMe)
                         "gif" -> Text("🎬 GIF", color = if (isMe) Color.White else TextPrimary)
@@ -804,6 +820,115 @@ private fun TelegramPhotoSendDialog(
                     Icon(Icons.Default.Send, "Send", modifier = Modifier.size(24.dp))
                 }
             }
+        }
+    }
+}
+
+/** Voice message bubble: play/pause button + waveform-style bars + duration. */
+@Composable
+private fun VoiceBubbleContent(msg: ChatMessage, isMe: Boolean) {
+    val context = LocalContext.current
+    val fullUrl = ApiClient.buildMediaUrl(msg.mediaUrl)
+    var mediaPlayer by remember(msg.id) { mutableStateOf<android.media.MediaPlayer?>(null) }
+    var isPlaying by remember(msg.id) { mutableStateOf(false) }
+    var duration by remember(msg.id) { mutableStateOf(0) }
+    var position by remember(msg.id) { mutableStateOf(0) }
+
+    // Cleanup MediaPlayer when bubble leaves composition
+    DisposableEffect(msg.id) {
+        onDispose {
+            mediaPlayer?.release()
+            mediaPlayer = null
+        }
+    }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.width(200.dp)
+    ) {
+        IconButton(
+            onClick = {
+                if (isPlaying) {
+                    mediaPlayer?.pause()
+                    isPlaying = false
+                } else {
+                    try {
+                        if (mediaPlayer == null) {
+                            val mp = android.media.MediaPlayer().apply {
+                                setDataSource(fullUrl)
+                                setOnPreparedListener {
+                                    duration = it.duration / 1000
+                                    it.start()
+                                    isPlaying = true
+                                }
+                                setOnCompletionListener {
+                                    isPlaying = false
+                                    position = 0
+                                }
+                                prepareAsync()
+                            }
+                            mediaPlayer = mp
+                        } else {
+                            mediaPlayer?.start()
+                            isPlaying = true
+                        }
+                    } catch (_: Exception) { isPlaying = false }
+                }
+            }
+        ) {
+            Icon(
+                if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                "Play/Pause",
+                tint = if (isMe) Color.White else PrimaryPurple,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        Spacer(Modifier.width(4.dp))
+        // Fake waveform bars (random-ish heights based on message id hash)
+        val bars = remember(msg.id) {
+            val seed = msg.id?.hashCode() ?: 0
+            (0 until 28).map { i ->
+                val h = (Math.sin((i + seed).toDouble()) * 0.5 + 0.5) * 0.7 + 0.3
+                h.toFloat()
+            }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            bars.forEachIndexed { i, h ->
+                Box(
+                    Modifier
+                        .size(width = 3.dp, height = (h * 28).dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(
+                            if (isPlaying && i < (position.toFloat() / max(duration, 1) * bars.size).toInt())
+                                if (isMe) Color.White else PrimaryPurple
+                            else
+                                if (isMe) Color.White.copy(alpha = 0.4f) else TextTertiary
+                        )
+                )
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(
+            if (duration > 0) "${duration / 60}:${String.format("%02d", duration % 60)}" else "0:00",
+            color = if (isMe) Color.White else TextSecondary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+
+    // Update position while playing
+    LaunchedEffect(isPlaying) {
+        while (isPlaying) {
+            mediaPlayer?.let { mp ->
+                if (mp.isPlaying) {
+                    position = mp.currentPosition / 1000
+                }
+            }
+            kotlinx.coroutines.delay(200)
         }
     }
 }

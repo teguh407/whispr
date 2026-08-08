@@ -425,14 +425,8 @@ async def my_karma_log(
     Paginated karma transaction history for the current user (newest first).
     """
     items = await get_karma_log(user["id"], limit=limit, offset=offset)
-    return {
-        "user_id": str(user["id"]),
-        "karma": user["karma"],
-        "level": karma_level(user["karma"]),
-        "limit": limit,
-        "offset": offset,
-        "transactions": items,
-    }
+    # Return plain array so mobile's Response<List<KarmaLogEntry>> deserializes correctly
+    return items
 
 
 @router.get("/{user_id}")

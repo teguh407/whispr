@@ -121,7 +121,7 @@ data class Story(
 // Chat
 data class Chat(
     val id: String = "",
-    val user: User? = null,
+    @SerializedName("other_user") val user: User? = null,
     @SerializedName("last_message") val lastMessage: String? = null,
     @SerializedName("last_message_at") val lastMessageAt: String? = null,
     @SerializedName("unread_count") val unreadCount: Int = 0

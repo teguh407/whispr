@@ -285,15 +285,17 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // Upload
-    fun uploadVoice(file: File, onResult: (String) -> Unit) = viewModelScope.launch {
+    fun uploadVoice(file: File, onResult: (UploadResponse?) -> Unit) = viewModelScope.launch {
         try {
             val requestFile = file.asRequestBody("audio/*".toMediaTypeOrNull())
             val part = MultipartBody.Part.createFormData("file", file.name, requestFile)
             val resp = ApiClient.api.uploadVoice(part)
             if (resp.isSuccessful) {
-                resp.body()?.url?.let { onResult(it) }
+                onResult(resp.body())
+            } else {
+                onResult(null)
             }
-        } catch (e: Exception) { err(e) }
+        } catch (e: Exception) { err(e); onResult(null) }
     }
 
     fun uploadPhoto(file: File, isOnceView: Boolean, onResult: (UploadResponse?) -> Unit) = viewModelScope.launch {
