@@ -34,7 +34,8 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     onBlocks: () -> Unit,
     onChats: () -> Unit,
-    onSettings: () -> Unit = {}
+    onSettings: () -> Unit = {},
+    onSwitchAccount: () -> Unit = {}
 ) {
     val user by viewModel.currentUser.collectAsState()
     val karmaResp by viewModel.karma.collectAsState()
@@ -215,6 +216,8 @@ fun ProfileScreen(
                         }
                         Divider(color = Background, thickness = 1.dp)
                         NavRow("My Chats", Icons.Default.Chat, onChats)
+                        Divider(color = Background, thickness = 1.dp)
+                        NavRow("Switch Account", Icons.Default.SwitchAccount, onSwitchAccount)
                         Divider(color = Background, thickness = 1.dp)
                         NavRow("Block List", Icons.Default.Block, onBlocks)
                         Divider(color = Background, thickness = 1.dp)

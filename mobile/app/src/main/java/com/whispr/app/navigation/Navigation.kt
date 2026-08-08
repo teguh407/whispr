@@ -172,7 +172,8 @@ fun WhisprNavigation(
                 },
                 onBlocks = { navController.navigate(Screen.Blocks.route) },
                 onChats = { navController.navigate(Screen.ChatList.route) },
-                onSettings = { navController.navigate(Screen.Settings.route) }
+                onSettings = { navController.navigate(Screen.Settings.route) },
+                onSwitchAccount = { navController.navigate(Screen.Accounts.route) }
             )
         }
 
