@@ -47,6 +47,7 @@ fun LoginScreen(
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var googleError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) onLoginSuccess()
@@ -174,7 +175,7 @@ fun LoginScreen(
                             viewModel.googleAuth(result.idToken)
                         is GoogleAuthHelper.Result.Cancelled -> { /* user closed picker */ }
                         is GoogleAuthHelper.Result.Error ->
-                            Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+                            googleError = result.message
                     }
                 }
             },
@@ -231,6 +232,26 @@ fun LoginScreen(
             color = TextSecondary,
             fontSize = 12.sp,
             modifier = Modifier.clickable { onSettings() }
+        )
+    }
+
+    // Full Google error dialog (debuggable — toast truncates the code)
+    googleError?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { googleError = null },
+            containerColor = CardBg,
+            title = { Text("Google Sign-In error", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    msg,
+                    color = TextSecondary,
+                    fontSize = 13.sp,
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { googleError = null }) { Text("OK", color = PrimaryPurple) }
+            }
         )
     }
 }
