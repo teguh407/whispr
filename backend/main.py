@@ -622,8 +622,8 @@ async def list_posts(
             pidx += 1
         # Ordering
         if tab == "hot":
-            # score = upvotes*2 + replies, then recency
-            order = "ORDER BY (vote_count * 2 + p.replies_count) DESC, p.created_at DESC"
+            # score = upvotes*2 + replies, then recency — can't use alias in ORDER BY
+            order = "ORDER BY ((SELECT COUNT(*) FROM upvotes WHERE post_id = p.id) * 2 + p.replies_count) DESC, p.created_at DESC"
         else:
             order = "ORDER BY p.created_at DESC"
         sql = f"""
