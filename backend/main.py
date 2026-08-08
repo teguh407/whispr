@@ -1842,6 +1842,269 @@ async def health():
         "gif", "voice_call"
     ]}
 
+# ═══════════════════════════════════════════════════════════
+# MATCH WITH STRANGER — 1-on-1 anonymous game matching
+# ═══════════════════════════════════════════════════════════
+import time as _time
+import random as _random
+import string as _string
+
+# In-memory match queue: list of {"user_id": uuid, "mode": str, "joined_at": float}
+_match_queue: list = []
+
+# Active matches keyed by match_id (uuid str):
+#   {"user1": uuid, "user2": uuid, "mode": str, "prompt": str,
+#    "answer1": str|None, "answer2": str|None,
+#    "react1": str|None, "react2": str|None,
+#    "anon1": str, "anon2": str,
+#    "started_at": float, "phase": "answering"|"reveal"|"done"}
+_active_matches: dict = {}
+
+_MATCH_ANSWER_WINDOW = 30   # seconds to answer before auto-reveal
+_MATCH_TOTAL_LIFETIME = 60  # seconds before match is cleaned up
+_VALID_REACT_EMOJIS = {"🔥", "😂", "👍", "😍"}
+
+
+def _gen_anon_id() -> str:
+    """Generate an anonymous stranger id like 'Stranger_abc123'."""
+    suffix = "".join(_random.choices(_string.ascii_lowercase + _string.digits, k=6))
+    return f"Stranger_{suffix}"
+
+
+def _pick_random_mode() -> str:
+    return _random.choice(list(_GAME_PROMPTS.keys()))
+
+
+def _refresh_match_phase(m: dict) -> str:
+    """Advance match phase based on elapsed time. Returns current phase."""
+    now = _time.time()
+    elapsed = now - m["started_at"]
+    phase = m["phase"]
+    if phase == "done":
+        return "done"
+    if elapsed >= _MATCH_TOTAL_LIFETIME:
+        m["phase"] = "done"
+        return "done"
+    if phase == "answering":
+        # Auto-reveal if the answer window elapsed OR both answered
+        both_answered = bool(m["answer1"]) and bool(m["answer2"])
+        if both_answered or elapsed >= _MATCH_ANSWER_WINDOW:
+            m["phase"] = "reveal"
+            return "reveal"
+    return m["phase"]
+
+
+class MatchJoinReq(BaseModel):
+    mode: Optional[str] = None  # defaults to random
+
+
+@app.post("/api/games/match/join")
+async def game_match_join(req: MatchJoinReq, user=Depends(get_current_user)):
+    """Join the matchmaking queue. Returns immediately with 'waiting' or 'matched'."""
+    uid = user["id"]
+    # Validate / pick mode
+    mode = req.mode or _pick_random_mode()
+    if mode not in _GAME_PROMPTS:
+        raise HTTPException(400, f"Unknown game mode: {mode}")
+
+    # Remove any prior queue entries for this user (no double-queueing)
+    _match_queue[:] = [e for e in _match_queue if e["user_id"] != uid]
+
+    # Remove expired queue entries (>120s)
+    now = _time.time()
+    _match_queue[:] = [
+        e for e in _match_queue
+        if (now - e["joined_at"]) < 120 and e["user_id"] != uid
+    ]
+
+    # Look for an opponent already waiting (any mode — prefer same mode)
+    opponent = None
+    # First try same-mode match
+    for i, e in enumerate(_match_queue):
+        if e["mode"] == mode:
+            opponent = _match_queue.pop(i)
+            break
+    # Otherwise match with the first available (fallback to opponent's mode)
+    if not opponent and _match_queue:
+        opponent = _match_queue.pop(0)
+        mode = opponent["mode"]  # use the waiting user's chosen mode
+
+    if opponent:
+        match_id = str(uuid.uuid4())
+        prompt = _random.choice(_GAME_PROMPTS[mode])
+        _active_matches[match_id] = {
+            "user1": opponent["user_id"],
+            "user2": uid,
+            "mode": mode,
+            "prompt": prompt,
+            "answer1": None,
+            "answer2": None,
+            "react1": None,
+            "react2": None,
+            "anon1": _gen_anon_id(),
+            "anon2": _gen_anon_id(),
+            "started_at": now,
+            "phase": "answering",
+        }
+        # Return matched response for the current (2nd) user
+        return {
+            "status": "matched",
+            "match_id": match_id,
+            "opponent_id": _active_matches[match_id]["anon1"],
+            "prompt": prompt,
+            "mode": mode,
+        }
+
+    # No opponent — add to queue and tell user to wait
+    _match_queue.append({"user_id": uid, "mode": mode, "joined_at": now})
+    return {"status": "waiting", "match_id": None, "mode": mode}
+
+
+def _user_side_in_match(m: dict, uid) -> int:
+    """Return 1 or 2 depending on which side uid is in match m, or 0 if not present."""
+    if str(m["user1"]) == str(uid):
+        return 1
+    if str(m["user2"]) == str(uid):
+        return 2
+    return 0
+
+
+@app.get("/api/games/match/{match_id}/status")
+async def game_match_status(match_id: str, user=Depends(get_current_user)):
+    """Get the current state of a match from the requesting user's perspective."""
+    m = _active_matches.get(match_id)
+    if not m:
+        return {"phase": "done", "my_answer": None, "opponent_answer": None, "time_left": 0}
+
+    uid = user["id"]
+    side = _user_side_in_match(m, uid)
+    if side == 0:
+        raise HTTPException(403, "You are not part of this match")
+
+    # If this user has been polling and an opponent just joined, still reflect
+    # the match's phase (this endpoint is called once matched).
+    phase = _refresh_match_phase(m)
+
+    if side == 1:
+        my_answer = m["answer1"]
+        opp_answer = m["answer2"]
+    else:
+        my_answer = m["answer2"]
+        opp_answer = m["answer1"]
+
+    # Only reveal opponent's answer during reveal/done
+    if phase in ("answering", "waiting"):
+        opp_answer = None
+
+    now = _time.time()
+    elapsed = now - m["started_at"]
+    if phase == "answering":
+        time_left = max(0, int(_MATCH_ANSWER_WINDOW - elapsed))
+    elif phase == "reveal":
+        time_left = max(0, int(_MATCH_TOTAL_LIFETIME - elapsed))
+    else:
+        time_left = 0
+
+    return {
+        "phase": phase,
+        "my_answer": my_answer,
+        "opponent_answer": opp_answer,
+        "time_left": time_left,
+        "prompt": m["prompt"],
+        "mode": m["mode"],
+    }
+
+
+class MatchAnswerReq(BaseModel):
+    answer: str = Field(..., min_length=1, max_length=500)
+
+
+@app.post("/api/games/match/{match_id}/answer")
+async def game_match_answer(match_id: str, req: MatchAnswerReq, user=Depends(get_current_user)):
+    """Submit an answer for the current match."""
+    m = _active_matches.get(match_id)
+    if not m:
+        raise HTTPException(404, "Match not found or expired")
+    phase = _refresh_match_phase(m)
+    if phase == "done":
+        raise HTTPException(410, "Match has ended")
+
+    uid = user["id"]
+    side = _user_side_in_match(m, uid)
+    if side == 0:
+        raise HTTPException(403, "You are not part of this match")
+
+    # Store the answer if not already submitted
+    if side == 1 and not m["answer1"]:
+        m["answer1"] = req.answer
+    elif side == 2 and not m["answer2"]:
+        m["answer2"] = req.answer
+
+    # Re-evaluate phase (both answered → reveal)
+    phase = _refresh_match_phase(m)
+    return {"submitted": True, "phase": phase}
+
+
+class MatchReactReq(BaseModel):
+    emoji: str  # 🔥|😂|👍|😍
+
+
+@app.post("/api/games/match/{match_id}/react")
+async def game_match_react(match_id: str, req: MatchReactReq, user=Depends(get_current_user)):
+    """React to the opponent's answer. Awards +1 karma to the opponent."""
+    if req.emoji not in _VALID_REACT_EMOJIS:
+        raise HTTPException(400, "Invalid emoji. Allowed: 🔥 😂 👍 😍")
+
+    m = _active_matches.get(match_id)
+    if not m:
+        raise HTTPException(404, "Match not found or expired")
+    _refresh_match_phase(m)
+    if m["phase"] not in ("reveal", "done"):
+        raise HTTPException(400, "Can only react after answers are revealed")
+
+    uid = user["id"]
+    side = _user_side_in_match(m, uid)
+    if side == 0:
+        raise HTTPException(403, "You are not part of this match")
+
+    # Record reaction (only first reaction counts)
+    if side == 1 and not m["react1"]:
+        m["react1"] = req.emoji
+        opponent_uid = m["user2"]
+    elif side == 2 and not m["react2"]:
+        m["react2"] = req.emoji
+        opponent_uid = m["user1"]
+    else:
+        # Already reacted
+        return {"ok": True}
+
+    # Award karma to the opponent (+1 per reaction)
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE users SET karma = GREATEST(karma + 1, 0) WHERE id = $1",
+                opponent_uid,
+            )
+    except Exception:
+        # Non-fatal: karma award failure shouldn't break the reaction flow
+        pass
+    return {"ok": True}
+
+
+@app.post("/api/games/match/{match_id}/leave")
+async def game_match_leave(match_id: str, user=Depends(get_current_user)):
+    """Clean up a match and remove the user from the queue."""
+    uid = user["id"]
+    # Remove from queue
+    _match_queue[:] = [e for e in _match_queue if e["user_id"] != uid]
+    # Remove the match if it exists and user is part of it
+    m = _active_matches.get(match_id)
+    if m and _user_side_in_match(m, uid) != 0:
+        m["phase"] = "done"
+        # Delete match immediately on explicit leave
+        _active_matches.pop(match_id, None)
+    return {"ok": True}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8004, reload=True)

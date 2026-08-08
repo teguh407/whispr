@@ -355,6 +355,14 @@ fun PostCard(
     val typeMeta = typeMetaFor(post.postType)
     val moodE = moodEmoji(post.mood)
     val isConfession = post.postType == "confession"
+    // Detect game post: content starts with [mode] and has \n\n separator
+    val gameMatch = Regex("^\\[(never_have_i_ever|three_words|would_you_rather)\\]\\s*(.+?)(?:\\n\\n(.+))?$", RegexOption.DOT_MATCHES_ALL).matchEntire(post.content)
+    val isGamePost = gameMatch != null
+    val gameModeKey = gameMatch?.groupValues?.getOrNull(1)
+    val gamePrompt = gameMatch?.groupValues?.getOrNull(2)?.trim()
+    val gameAnswer = gameMatch?.groupValues?.getOrNull(3)?.trim()
+    val gameEmoji = when (gameModeKey) { "never_have_i_ever" -> "🙈"; "three_words" -> "✏️"; "would_you_rather" -> "🤔"; else -> "🎮" }
+    val gameTitle = when (gameModeKey) { "never_have_i_ever" -> "Never Have I Ever"; "three_words" -> "3 Words"; "would_you_rather" -> "Would You Rather"; else -> "Game" }
     var menuOpen by remember { mutableStateOf(false) }
     var showEdit by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -430,8 +438,29 @@ fun PostCard(
 
             Spacer(Modifier.height(10.dp))
 
-            // Content — gradient hero OR plain text
-            if (bg != null) {
+            // Content — game card OR gradient hero OR plain text
+            if (isGamePost) {
+                // Game post: special card with mode badge, prompt, answer
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(CardBgAlt)
+                        .padding(14.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(gameEmoji, fontSize = 20.sp)
+                        Spacer(Modifier.width(6.dp))
+                        Text(gameTitle, color = VioletBright, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(gamePrompt ?: "", color = TextSecondary, fontSize = 13.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                    if (!gameAnswer.isNullOrEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(gameAnswer, color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Medium, lineHeight = 22.sp)
+                    }
+                }
+            } else if (bg != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

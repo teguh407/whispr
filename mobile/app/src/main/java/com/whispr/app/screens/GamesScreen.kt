@@ -37,7 +37,8 @@ import com.whispr.app.viewmodel.WhisprViewModel
 @Composable
 fun GamesScreen(
     viewModel: WhisprViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onMatch: () -> Unit = {}
 ) {
     val modes by viewModel.gameModes.collectAsState()
     val currentPrompt by viewModel.currentPrompt.collectAsState()
@@ -109,6 +110,31 @@ fun GamesScreen(
                         color = Color.White.copy(alpha = 0.9f),
                         fontSize = 13.sp
                     )
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            // Match with Stranger button
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onMatch() },
+                color = PrimaryPurple.copy(alpha = 0.15f),
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, PrimaryPurple.copy(alpha = 0.4f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.PersonSearch, null, tint = PrimaryPurple, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Match with a Stranger", color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text("Play 1-on-1 anonymously", color = TextTertiary, fontSize = 12.sp)
+                    }
+                    Icon(Icons.Default.ChevronRight, null, tint = PrimaryPurple, modifier = Modifier.size(24.dp))
                 }
             }
 

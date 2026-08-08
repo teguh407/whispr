@@ -38,6 +38,7 @@ sealed class Screen(val route: String) {
         fun createRoute(groupId: String) = "group_chat/$groupId"
     }
     object Games : Screen("games")
+    object Match : Screen("match")
     object Stories : Screen("stories")
 }
 
@@ -252,6 +253,14 @@ fun WhisprNavigation(viewModel: WhisprViewModel = viewModel()) {
 
         composable(Screen.Games.route) {
             GamesScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onMatch = { navController.navigate(Screen.Match.route) }
+            )
+        }
+
+        composable(Screen.Match.route) {
+            MatchScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )

@@ -202,4 +202,20 @@ interface ApiService {
 
     @POST("api/games/answer")
     suspend fun submitGameAnswer(@Body request: SubmitAnswerRequest): Response<Unit>
+
+    // Match with Stranger
+    @POST("api/games/match/join")
+    suspend fun matchJoin(@Body request: Map<String, String>): Response<MatchJoinResponse>
+
+    @GET("api/games/match/{match_id}/status")
+    suspend fun matchStatus(@Path("match_id") matchId: String): Response<MatchStatus>
+
+    @POST("api/games/match/{match_id}/answer")
+    suspend fun matchAnswer(@Path("match_id") matchId: String, @Body request: MatchAnswerRequest): Response<Unit>
+
+    @POST("api/games/match/{match_id}/react")
+    suspend fun matchReact(@Path("match_id") matchId: String, @Body request: MatchReactRequest): Response<Unit>
+
+    @POST("api/games/match/{match_id}/leave")
+    suspend fun matchLeave(@Path("match_id") matchId: String): Response<Unit>
 }

@@ -527,6 +527,49 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { err(e) }
     }
 
+    // Match with Stranger
+    private val _matchJoin = MutableStateFlow<MatchJoinResponse?>(null)
+    val matchJoin: StateFlow<MatchJoinResponse?> = _matchJoin
+
+    private val _matchStatus = MutableStateFlow<MatchStatus?>(null)
+    val matchStatus: StateFlow<MatchStatus?> = _matchStatus
+
+    fun matchJoin(mode: String? = null) = viewModelScope.launch {
+        try {
+            val body = if (mode != null) mapOf("mode" to mode) else emptyMap()
+            val resp = ApiClient.api.matchJoin(body)
+            if (resp.isSuccessful) _matchJoin.value = resp.body()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun matchStatus(matchId: String) = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.matchStatus(matchId)
+            if (resp.isSuccessful) _matchStatus.value = resp.body()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun matchAnswer(matchId: String, answer: String, onDone: () -> Unit = {}) = viewModelScope.launch {
+        try {
+            ApiClient.api.matchAnswer(matchId, MatchAnswerRequest(answer))
+            onDone()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun matchReact(matchId: String, emoji: String) = viewModelScope.launch {
+        try {
+            ApiClient.api.matchReact(matchId, MatchReactRequest(emoji))
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun matchLeave(matchId: String) = viewModelScope.launch {
+        try {
+            ApiClient.api.matchLeave(matchId)
+            _matchJoin.value = null
+            _matchStatus.value = null
+        } catch (e: Exception) { err(e) }
+    }
+
     // Trending
     fun loadTrending() = viewModelScope.launch {
         try {

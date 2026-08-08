@@ -153,6 +153,27 @@ data class WsMessage(
     val timestamp: String? = null
 )
 
+// ── Match with Stranger ──
+data class MatchJoinResponse(
+    val status: String = "",        // "waiting" or "matched"
+    @SerializedName("match_id") val matchId: String? = null,
+    @SerializedName("opponent_id") val opponentId: String? = null,
+    val prompt: String? = null,
+    val mode: String? = null
+)
+
+data class MatchStatus(
+    val phase: String = "",         // "waiting"|"answering"|"reveal"|"done"
+    @SerializedName("my_answer") val myAnswer: String? = null,
+    @SerializedName("opponent_answer") val opponentAnswer: String? = null,
+    @SerializedName("time_left") val timeLeft: Int = 0,
+    @SerializedName("my_reacted") val myReacted: String? = null,
+    @SerializedName("opponent_reacted") val opponentReacted: String? = null
+)
+
+data class MatchAnswerRequest(val answer: String)
+data class MatchReactRequest(val emoji: String)
+
 data class UploadResponse(
     val url: String = "",
     val type: String = "",
