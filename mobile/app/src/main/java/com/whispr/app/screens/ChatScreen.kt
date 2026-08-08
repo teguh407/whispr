@@ -903,7 +903,7 @@ private fun VoiceBubbleContent(msg: ChatMessage, isMe: Boolean) {
                         .size(width = 3.dp, height = (h * 28).dp)
                         .clip(RoundedCornerShape(2.dp))
                         .background(
-                            if (isPlaying && i < (position.toFloat() / max(duration, 1) * bars.size).toInt())
+                            if (isPlaying && i < (position.toFloat() / maxOf(duration, 1) * bars.size).toInt())
                                 if (isMe) Color.White else PrimaryPurple
                             else
                                 if (isMe) Color.White.copy(alpha = 0.4f) else TextTertiary
