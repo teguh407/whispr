@@ -1,6 +1,7 @@
 package com.whispr.app.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -23,10 +25,12 @@ import com.whispr.app.viewmodel.WhisprViewModel
 @Composable
 fun SettingsScreen(
     viewModel: WhisprViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onThemeChange: (ThemeMode) -> Unit = {}
 ) {
     var serverUrl by remember { mutableStateOf(ApiClient.getBaseUrl()) }
     var saved by remember { mutableStateOf(false) }
+    var selectedTheme by remember { mutableStateOf(ThemeMode.System) }
 
     Scaffold(
         topBar = {
@@ -53,6 +57,52 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp)
         ) {
+            // ── Appearance / Theme ──
+            Text("Appearance", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
+            Spacer(Modifier.height(12.dp))
+
+            Text("Theme", color = TextSecondary, fontSize = 13.sp)
+            Spacer(Modifier.height(8.dp))
+
+            // Theme selector cards
+            ThemeOptionCard(
+                title = "System",
+                subtitle = "Follow device setting",
+                icon = Icons.Default.BrightnessAuto,
+                selected = selectedTheme == ThemeMode.System,
+                onClick = {
+                    selectedTheme = ThemeMode.System
+                    onThemeChange(ThemeMode.System)
+                }
+            )
+            Spacer(Modifier.height(8.dp))
+            ThemeOptionCard(
+                title = "Dark",
+                subtitle = "Whispr classic dark-violet",
+                icon = Icons.Default.DarkMode,
+                selected = selectedTheme == ThemeMode.Dark,
+                onClick = {
+                    selectedTheme = ThemeMode.Dark
+                    onThemeChange(ThemeMode.Dark)
+                }
+            )
+            Spacer(Modifier.height(8.dp))
+            ThemeOptionCard(
+                title = "Light",
+                subtitle = "Clean white + violet accents",
+                icon = Icons.Default.LightMode,
+                selected = selectedTheme == ThemeMode.Light,
+                onClick = {
+                    selectedTheme = ThemeMode.Light
+                    onThemeChange(ThemeMode.Light)
+                }
+            )
+
+            Spacer(Modifier.height(32.dp))
+            HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
+            Spacer(Modifier.height(24.dp))
+
+            // ── Server ──
             Text("Server", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
@@ -89,13 +139,49 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(32.dp))
-            Divider(color = TextSecondary.copy(alpha = 0.2f))
+            HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
             Spacer(Modifier.height(24.dp))
 
+            // ── About ──
             Text("About", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
             Spacer(Modifier.height(12.dp))
-            Text("Whispr v1.1.0", color = TextSecondary)
+            Text("Whispr v1.2.0", color = TextSecondary)
             Text("Anonymous. Real. You.", color = TextSecondary, fontSize = 13.sp)
+        }
+    }
+}
+
+@Composable
+private fun ThemeOptionCard(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) PrimaryPurple.copy(alpha = 0.12f) else CardBg,
+        border = androidx.compose.foundation.BorderStroke(
+            2.dp, if (selected) PrimaryPurple else Color.Transparent
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = if (selected) PrimaryPurple else TextSecondary, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = TextTertiary, fontSize = 12.sp)
+            }
+            if (selected) {
+                Icon(Icons.Default.CheckCircle, null, tint = PrimaryPurple, modifier = Modifier.size(24.dp))
+            }
         }
     }
 }

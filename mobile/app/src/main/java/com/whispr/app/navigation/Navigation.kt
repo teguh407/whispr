@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -14,6 +15,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.whispr.app.screens.*
+import com.whispr.app.ui.theme.ThemeMode
 import com.whispr.app.viewmodel.WhisprViewModel
 
 sealed class Screen(val route: String) {
@@ -43,7 +45,10 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun WhisprNavigation(viewModel: WhisprViewModel = viewModel()) {
+fun WhisprNavigation(
+    viewModel: WhisprViewModel = viewModel(),
+    onThemeChange: (ThemeMode) -> Unit = {}
+) {
     val navController = rememberNavController()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
     val isAuthReady by viewModel.isAuthReady.collectAsState()
@@ -53,10 +58,10 @@ fun WhisprNavigation(viewModel: WhisprViewModel = viewModel()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF0B0B14)),
+                .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator(color = Color(0xFF7C4DFF), strokeWidth = 3.dp)
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeWidth = 3.dp)
         }
         return
     }
@@ -287,7 +292,8 @@ fun WhisprNavigation(viewModel: WhisprViewModel = viewModel()) {
         composable(Screen.Settings.route) {
             SettingsScreen(
                 viewModel = viewModel,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onThemeChange = onThemeChange
             )
         }
     }
