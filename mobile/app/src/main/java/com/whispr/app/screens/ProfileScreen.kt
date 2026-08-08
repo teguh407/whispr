@@ -33,7 +33,8 @@ fun ProfileScreen(
     onBack: () -> Unit,
     onLogout: () -> Unit,
     onBlocks: () -> Unit,
-    onChats: () -> Unit
+    onChats: () -> Unit,
+    onSettings: () -> Unit = {}
 ) {
     val user by viewModel.currentUser.collectAsState()
     val karmaResp by viewModel.karma.collectAsState()
@@ -216,6 +217,8 @@ fun ProfileScreen(
                         NavRow("My Chats", Icons.Default.Chat, onChats)
                         Divider(color = Background, thickness = 1.dp)
                         NavRow("Block List", Icons.Default.Block, onBlocks)
+                        Divider(color = Background, thickness = 1.dp)
+                        NavRow("App Settings", Icons.Default.Settings, onSettings)
                     }
                 }
 
