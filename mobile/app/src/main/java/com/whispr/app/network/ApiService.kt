@@ -130,6 +130,22 @@ interface ApiService {
         @Query("max_age") maxAge: Int? = null
     ): Response<List<DiscoverUser>>
 
+    // Location
+    @PUT("api/me/location")
+    suspend fun updateLocation(@Body request: LocationUpdate): Response<Map<String, Boolean>>
+
+    // Trending
+    @GET("api/trending")
+    suspend fun getTrending(): Response<List<TrendingTag>>
+
+    // Report
+    @POST("api/posts/{id}/report")
+    suspend fun reportPost(@Path("id") postId: String, @Body request: ReportRequest): Response<Unit>
+
+    // Account switching
+    @POST("api/accounts/{id}/switch")
+    suspend fun switchAccount(@Path("id") accountId: String): Response<AuthResponse>
+
     // Polls
     @POST("api/polls")
     suspend fun createPoll(@Body request: CreatePollRequest): Response<Map<String, String>>
@@ -170,22 +186,13 @@ interface ApiService {
     @GET("api/groups/{id}/messages")
     suspend fun getGroupMessages(@Path("id") groupId: String): Response<List<GroupMessage>>
 
-    // Games
+    // Games — match actual backend API
     @GET("api/games/modes")
     suspend fun getGameModes(): Response<List<GameMode>>
 
-    @POST("api/games/start")
-    suspend fun startGame(@Body body: Map<String, String>): Response<GameSession>
+    @GET("api/games/{mode}/prompt")
+    suspend fun getGamePrompt(@Path("mode") mode: String): Response<GamePrompt>
 
-    @GET("api/games/{id}")
-    suspend fun getGame(@Path("id") gameId: String): Response<GameSession>
-
-    @POST("api/games/{id}/answer")
-    suspend fun submitGameAnswer(@Path("id") gameId: String, @Body request: SubmitAnswerRequest): Response<GameAnswer>
-
-    @POST("api/games/{id}/next")
-    suspend fun nextPrompt(@Path("id") gameId: String): Response<GameSession>
-
-    @POST("api/games/{id}/end")
-    suspend fun endGame(@Path("id") gameId: String): Response<Unit>
+    @POST("api/games/answer")
+    suspend fun submitGameAnswer(@Body request: SubmitAnswerRequest): Response<Unit>
 }

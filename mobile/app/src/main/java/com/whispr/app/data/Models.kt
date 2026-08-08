@@ -156,7 +156,7 @@ data class ShareableLink(
     @SerializedName("created_at") val createdAt: String? = null
 )
 
-data class CreateLinkRequest(val url: String)
+data class CreateLinkRequest(val title: String)
 data class LinkMessage(val message: String)
 
 // Accounts
@@ -237,32 +237,36 @@ data class GroupMessage(
     @SerializedName("created_at") val createdAt: String? = null
 )
 
-// Games
+// Games — match actual backend response
 data class GameMode(
-    val id: String,
-    val name: String,
-    val description: String,
-    val icon: String
+    val key: String = "",
+    val title: String = "",
+    val emoji: String = ""
 )
 data class GamePrompt(
-    val id: String = "",
-    val text: String = "",
-    @SerializedName("game_mode") val gameMode: String = ""
-)
-data class GameAnswer(
-    val id: String = "",
-    @SerializedName("prompt_id") val promptId: String = "",
-    val text: String = "",
-    @SerializedName("user_id") val userId: String = ""
+    val mode: String = "",
+    val prompt: String = ""
 )
 data class SubmitAnswerRequest(
-    @SerializedName("prompt_id") val promptId: String,
-    val text: String
+    val mode: String,
+    val prompt: String,
+    val answer: String
 )
-data class GameSession(
-    val id: String = "",
-    @SerializedName("game_mode") val gameMode: String = "",
-    @SerializedName("current_prompt") val currentPrompt: GamePrompt? = null,
-    @SerializedName("answers") val answers: List<GameAnswer> = emptyList(),
-    @SerializedName("is_active") val isActive: Boolean = true
+
+// Location
+data class LocationUpdate(
+    val lat: Double,
+    val lng: Double,
+    val city: String? = null
+)
+
+// Trending
+data class TrendingTag(
+    val tag: String = "",
+    val count: Int = 0
+)
+
+// Report
+data class ReportRequest(
+    val reason: String
 )

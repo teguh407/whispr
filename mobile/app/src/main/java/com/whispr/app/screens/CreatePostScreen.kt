@@ -38,8 +38,10 @@ private val postTypes = listOf(
 )
 
 private val moods = listOf(
-    "Happy" to "😊", "Lonely" to "🥺", "Sad" to "😢",
-    "Angry" to "😠", "Excited" to "🤩", "Anxious" to "😰"
+    "Happy" to "😊",
+    "Lonely" to "😔",
+    "Need Advice" to "🤔",
+    "Venting" to "😤"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

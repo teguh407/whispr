@@ -95,8 +95,12 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     private val _gameModes = MutableStateFlow<List<GameMode>>(emptyList())
     val gameModes: StateFlow<List<GameMode>> = _gameModes
 
-    private val _activeGame = MutableStateFlow<GameSession?>(null)
-    val activeGame: StateFlow<GameSession?> = _activeGame
+    private val _currentPrompt = MutableStateFlow<GamePrompt?>(null)
+    val currentPrompt: StateFlow<GamePrompt?> = _currentPrompt
+
+    // Trending
+    private val _trending = MutableStateFlow<List<TrendingTag>>(emptyList())
+    val trending: StateFlow<List<TrendingTag>> = _trending
 
     init {
         viewModelScope.launch {
@@ -186,7 +190,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         _discoverUsers.value = emptyList()
         _groups.value = emptyList()
         _stories.value = emptyList()
-        _activeGame.value = null
+        _currentPrompt.value = null
     }
 
     fun setBaseUrl(url: String) = viewModelScope.launch {
@@ -307,9 +311,9 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { err(e) }
     }
 
-    fun createLink(url: String) = viewModelScope.launch {
+    fun createLink(title: String) = viewModelScope.launch {
         try {
-            ApiClient.api.createLink(CreateLinkRequest(url))
+            ApiClient.api.createLink(CreateLinkRequest(title))
             loadLinks()
         } catch (e: Exception) { err(e) }
     }
@@ -478,7 +482,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { err(e) }
     }
 
-    // Games
+    // Games — match actual backend API (modes → prompt → answer)
     fun loadGameModes() = viewModelScope.launch {
         try {
             val resp = ApiClient.api.getGameModes()
@@ -486,30 +490,60 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { err(e) }
     }
 
-    fun startGame(modeId: String) = viewModelScope.launch {
+    fun loadGamePrompt(mode: String) = viewModelScope.launch {
         try {
-            val resp = ApiClient.api.startGame(mapOf("mode" to modeId))
-            if (resp.isSuccessful) _activeGame.value = resp.body()
+            val resp = ApiClient.api.getGamePrompt(mode)
+            if (resp.isSuccessful) _currentPrompt.value = resp.body()
         } catch (e: Exception) { err(e) }
     }
 
-    fun submitGameAnswer(gameId: String, promptId: String, text: String) = viewModelScope.launch {
+    fun submitGameAnswer(mode: String, prompt: String, answer: String) = viewModelScope.launch {
         try {
-            ApiClient.api.submitGameAnswer(gameId, SubmitAnswerRequest(promptId, text))
+            ApiClient.api.submitGameAnswer(SubmitAnswerRequest(mode, prompt, answer))
+            _error.value = "Answer submitted!"
+            _currentPrompt.value = null
         } catch (e: Exception) { err(e) }
     }
 
-    fun nextPrompt(gameId: String) = viewModelScope.launch {
+    // Trending
+    fun loadTrending() = viewModelScope.launch {
         try {
-            val resp = ApiClient.api.nextPrompt(gameId)
-            if (resp.isSuccessful) _activeGame.value = resp.body()
+            val resp = ApiClient.api.getTrending()
+            if (resp.isSuccessful) _trending.value = resp.body() ?: emptyList()
         } catch (e: Exception) { err(e) }
     }
 
-    fun endGame(gameId: String) = viewModelScope.launch {
+    // Report
+    fun reportPost(postId: String, reason: String) = viewModelScope.launch {
         try {
-            ApiClient.api.endGame(gameId)
-            _activeGame.value = null
+            ApiClient.api.reportPost(postId, ReportRequest(reason))
+            _error.value = "Post reported"
         } catch (e: Exception) { err(e) }
+    }
+
+    // Location
+    fun updateLocation(lat: Double, lng: Double, city: String?) = viewModelScope.launch {
+        try {
+            ApiClient.api.updateLocation(LocationUpdate(lat, lng, city))
+        } catch (e: Exception) { err(e) }
+    }
+
+    // Account switching
+    fun switchAccount(accountId: String) = viewModelScope.launch {
+        _loading.value = true
+        try {
+            val resp = ApiClient.api.switchAccount(accountId)
+            if (resp.isSuccessful) {
+                resp.body()?.let {
+                    TokenStore.saveToken(ctx(), it.token)
+                    ApiClient.setToken(it.token)
+                    _currentUser.value = it.user ?: ApiClient.api.getMe().body()
+                    _isLoggedIn.value = true
+                }
+            } else {
+                _error.value = "Switch failed: ${resp.code()}"
+            }
+        } catch (e: Exception) { err(e) }
+        _loading.value = false
     }
 }

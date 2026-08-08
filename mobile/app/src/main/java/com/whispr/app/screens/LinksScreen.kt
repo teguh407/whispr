@@ -62,7 +62,7 @@ fun LinksScreen(
                 OutlinedTextField(
                     value = newUrl,
                     onValueChange = { newUrl = it },
-                    label = { Text("URL to share") },
+                    label = { Text("Link title") },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,

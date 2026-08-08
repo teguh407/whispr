@@ -1,7 +1,9 @@
 package com.whispr.app.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -25,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.whispr.app.data.Post
 import com.whispr.app.data.Story
+import com.whispr.app.data.TrendingTag
 import com.whispr.app.data.User
 import com.whispr.app.ui.components.*
 import com.whispr.app.ui.theme.*
@@ -45,11 +48,14 @@ fun FeedScreen(
     val currentUser by viewModel.currentUser.collectAsState()
     val error by viewModel.error.collectAsState()
     val stories by viewModel.stories.collectAsState()
+    val trending by viewModel.trending.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
+    var reportTargetId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) { viewModel.loadPosts(tab = "hot") }
     LaunchedEffect(Unit) { viewModel.loadStories() }
+    LaunchedEffect(Unit) { viewModel.loadTrending() }
 
     LaunchedEffect(selectedTab) {
         viewModel.loadPosts(tab = when (selectedTab) {
@@ -139,6 +145,16 @@ fun FeedScreen(
             // Daily Question card
             item { DailyQuestionCard(onJoin = onCreatePost) }
 
+            // Trending hashtags bar
+            if (trending.isNotEmpty()) {
+                item {
+                    TrendingHashtagsBar(
+                        trending = trending,
+                        onTagClick = { tag -> viewModel.loadPosts(tag = tag) }
+                    )
+                }
+            }
+
             // Story bar (only when stories exist)
             if (stories.isNotEmpty()) {
                 item {
@@ -187,10 +203,22 @@ fun FeedScreen(
                         onUpvote = { viewModel.upvotePost(post.id) },
                         onReply = { onPostClick(post.id) },
                         onEdit = { newContent -> viewModel.editPost(post.id, newContent) },
-                        onDelete = { viewModel.deletePost(post.id) }
+                        onDelete = { viewModel.deletePost(post.id) },
+                        onReport = { reportTargetId = post.id }
                     )
                 }
             }
+        }
+
+        // Report post dialog
+        reportTargetId?.let { id ->
+            ReportReasonDialog(
+                onDismiss = { reportTargetId = null },
+                onConfirm = { reason ->
+                    viewModel.reportPost(id, reason)
+                    reportTargetId = null
+                }
+            )
         }
     }
 }
@@ -311,6 +339,7 @@ private fun DailyQuestionCard(onJoin: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PostCard(
     post: Post,
@@ -318,7 +347,8 @@ fun PostCard(
     onUpvote: () -> Unit,
     onReply: () -> Unit,
     onEdit: (String) -> Unit = {},
-    onDelete: () -> Unit = {}
+    onDelete: () -> Unit = {},
+    onReport: () -> Unit = {}
 ) {
     val authorName = post.author?.displayName ?: post.author?.username ?: "Anonymous"
     val bg = postBackgroundById(if (post.bgType == "gradient") post.bgValue else null)
@@ -328,16 +358,22 @@ fun PostCard(
     var menuOpen by remember { mutableStateOf(false) }
     var showEdit by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var reportMenuOpen by remember { mutableStateOf(false) }
 
     Surface(
         color = CardBg,
         shape = RoundedCornerShape(18.dp),
-        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = { reportMenuOpen = true }
+            )
     ) {
-        Column(Modifier.padding(14.dp)) {
+        Box(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(14.dp)) {
             // Author row
             Row(verticalAlignment = Alignment.CenterVertically) {
                 PersonaAvatar(authorName, size = 40)
@@ -471,7 +507,24 @@ fun PostCard(
                         modifier = Modifier.size(18.dp))
                 }
             }
-        }
+        } // end Column
+
+            // Report menu (long-press)
+            DropdownMenu(
+                expanded = reportMenuOpen,
+                onDismissRequest = { reportMenuOpen = false },
+                modifier = Modifier.background(CardBgAlt)
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Report", color = ErrorRed) },
+                    leadingIcon = {
+                        Icon(Icons.Outlined.Report, null, tint = ErrorRed,
+                            modifier = Modifier.size(18.dp))
+                    },
+                    onClick = { reportMenuOpen = false; onReport() }
+                )
+            }
+        } // end Box
     }
 
     // Edit dialog
@@ -551,13 +604,11 @@ private fun typeMetaFor(type: String?): TypeMeta? = when (type) {
 }
 
 private fun moodEmoji(mood: String?): String? = when (mood) {
-    "Happy"   -> "😊"
-    "Lonely"  -> "🥺"
-    "Sad"     -> "😔"
-    "Angry"   -> "😠"
-    "Excited" -> "🤩"
-    "Anxious" -> "😰"
-    else      -> null
+    "Happy"       -> "😊"
+    "Lonely"      -> "😔"
+    "Need Advice" -> "🤔"
+    "Venting"     -> "😤"
+    else          -> null
 }
 
 @Composable
@@ -624,6 +675,110 @@ private fun EmptyFeed() {
         Spacer(Modifier.height(4.dp))
         Text("Be the first to share something.", color = TextTertiary, fontSize = 13.sp)
     }
+}
+
+// ── Trending hashtags bar ──
+@Composable
+fun TrendingHashtagsBar(
+    trending: List<TrendingTag>,
+    onTagClick: (String) -> Unit
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+    ) {
+        item {
+            Surface(
+                color = CardBgAlt,
+                shape = RoundedCornerShape(50),
+                modifier = Modifier.clip(RoundedCornerShape(50))
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Outlined.TrendingUp, null, tint = PrimaryPink,
+                        modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Trending", color = TextSecondary, fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        items(trending) { tag ->
+            Surface(
+                color = ChipBg,
+                shape = RoundedCornerShape(50),
+                onClick = { onTagClick(tag.tag) },
+                modifier = Modifier.clip(RoundedCornerShape(50))
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("#${tag.tag}", color = VioletBright, fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium)
+                    if (tag.count > 0) {
+                        Spacer(Modifier.width(4.dp))
+                        Text("${tag.count}", color = TextTertiary, fontSize = 10.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Report reason dialog ──
+@Composable
+fun ReportReasonDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    val reasons = listOf("Spam", "Harassment", "Inappropriate", "Other")
+    var selectedReason by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardBgAlt,
+        title = { Text("Report this whisper?", color = TextPrimary, fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                reasons.forEach { reason ->
+                    Surface(
+                        color = if (selectedReason == reason) CardBg else Color.Transparent,
+                        shape = RoundedCornerShape(8.dp),
+                        onClick = { selectedReason = reason },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedReason == reason,
+                                onClick = { selectedReason = reason },
+                                colors = RadioButtonDefaults.colors(selectedColor = VioletBright)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(reason, color = TextPrimary, fontSize = 14.sp)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (selectedReason.isNotBlank()) onConfirm(selectedReason.lowercase()) },
+                enabled = selectedReason.isNotBlank()
+            ) { Text("Report", color = ErrorRed, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = TextSecondary)
+            }
+        }
+    )
 }
 
 // ── helpers ──

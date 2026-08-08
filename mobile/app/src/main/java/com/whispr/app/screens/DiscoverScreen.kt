@@ -74,6 +74,11 @@ fun DiscoverScreen(
     var ageRange by remember { mutableStateOf(AGE_MIN..AGE_MAX) }
     var query by remember { mutableStateOf("") }
 
+    // Location setting state
+    var showLocationDialog by remember { mutableStateOf(false) }
+    var cityInput by remember { mutableStateOf("") }
+    var currentCity by remember { mutableStateOf<String?>(null) }
+
     fun applyFilters() {
         val minAge = if (ageRange.start <= AGE_MIN) null else ageRange.start.toInt()
         val maxAge = if (ageRange.endInclusive >= AGE_MAX) null else ageRange.endInclusive.toInt()
@@ -134,18 +139,37 @@ fun DiscoverScreen(
             // ── Header ──
             item {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    Text(
-                        "Discover",
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = TextPrimary
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        "Find ghosts nearby who share your vibe",
-                        fontSize = 13.sp,
-                        color = TextSecondary
-                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Discover",
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = TextPrimary
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "Find ghosts nearby who share your vibe",
+                                color = TextSecondary,
+                                fontSize = 13.sp
+                            )
+                        }
+                        IconButton(onClick = { showLocationDialog = true }) {
+                            Icon(Icons.Outlined.LocationOn, "Set Location", tint = VioletBright)
+                        }
+                    }
+                    currentCity?.let { city ->
+                        Spacer(Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Place, null, tint = TextSecondary, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Location: $city", color = TextSecondary, fontSize = 12.sp)
+                        }
+                    }
                 }
             }
 
@@ -298,6 +322,51 @@ fun DiscoverScreen(
                     DiscoverUserCard(user, onMessage = handleMessage)
                 }
             }
+        }
+
+        // ── Set Location dialog ──
+        if (showLocationDialog) {
+            AlertDialog(
+                onDismissRequest = { showLocationDialog = false },
+                containerColor = Surface,
+                title = { Text("Set Location", color = TextPrimary, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text(
+                            "Enter your city name. We'll use Jakarta coordinates (-6.2088, 106.8456) as the default location.",
+                            color = TextSecondary,
+                            fontSize = 12.sp
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = cityInput,
+                            onValueChange = { cityInput = it },
+                            label = { Text("City name") },
+                            placeholder = { Text("e.g. Jakarta") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
+                                unfocusedContainerColor = CardBg, focusedContainerColor = Color.Transparent,
+                                focusedBorderColor = PrimaryPurple, unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f)
+                            )
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val city = cityInput.trim().ifBlank { null }
+                        viewModel.updateLocation(-6.2088, 106.8456, city)
+                        currentCity = city ?: "Jakarta"
+                        showLocationDialog = false
+                        cityInput = ""
+                        applyFilters()
+                    }) { Text("Set", color = PrimaryPurple, fontWeight = FontWeight.SemiBold) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showLocationDialog = false }) { Text("Cancel", color = TextSecondary) }
+                }
+            )
         }
     }
 }

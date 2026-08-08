@@ -29,6 +29,7 @@ fun AccountsScreen(
     onBack: () -> Unit
 ) {
     val accounts by viewModel.accounts.collectAsState()
+    val loading by viewModel.loading.collectAsState()
     var showDialog by remember { mutableStateOf(false) }
     var newUsername by remember { mutableStateOf("") }
     var newDisplayName by remember { mutableStateOf("") }
@@ -91,8 +92,26 @@ fun AccountsScreen(
                             Text(account.displayName ?: account.username, color = TextPrimary, fontWeight = FontWeight.SemiBold)
                             Text("@${account.username}", color = TextSecondary, fontSize = 12.sp)
                         }
+                        // Trailing: active indicator OR switch button
                         if (account.isActive) {
                             Surface(shape = CircleShape, color = SuccessGreen, modifier = Modifier.size(12.dp)) {}
+                            Spacer(Modifier.width(6.dp))
+                            Text("Active", color = SuccessGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        } else {
+                            if (loading) {
+                                CircularProgressIndicator(
+                                    color = VioletBright,
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                TextButton(
+                                    onClick = { viewModel.switchAccount(account.id) },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Switch", color = PrimaryPurple, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                                }
+                            }
                         }
                     }
                 }
