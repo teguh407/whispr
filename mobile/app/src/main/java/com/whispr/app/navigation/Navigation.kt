@@ -1,6 +1,13 @@
 package com.whispr.app.navigation
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
@@ -37,6 +44,20 @@ sealed class Screen(val route: String) {
 fun WhisprNavigation(viewModel: WhisprViewModel = viewModel()) {
     val navController = rememberNavController()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+    val isAuthReady by viewModel.isAuthReady.collectAsState()
+
+    if (!isAuthReady) {
+        // Splash/loading screen while checking auth
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF0B0B14)),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = Color(0xFF7C4DFF), strokeWidth = 3.dp)
+        }
+        return
+    }
 
     NavHost(
         navController = navController,

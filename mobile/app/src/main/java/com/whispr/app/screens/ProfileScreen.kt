@@ -43,8 +43,13 @@ fun ProfileScreen(
     var editing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        viewModel.clearError()
         viewModel.loadKarma()
         viewModel.loadKarmaLog()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { viewModel.clearError() }
     }
 
     // Derived "ghost" identity from real backend fields.

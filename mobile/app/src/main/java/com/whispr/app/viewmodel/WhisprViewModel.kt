@@ -27,6 +27,9 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn
 
+    private val _isAuthReady = MutableStateFlow(false)
+    val isAuthReady: StateFlow<Boolean> = _isAuthReady
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
@@ -116,6 +119,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
                     TokenStore.clearToken(ctx())
                 }
             }
+            _isAuthReady.value = true
         }
     }
 
