@@ -86,8 +86,13 @@ async def init_db():
                 karma INT DEFAULT 0,
                 days_active INT DEFAULT 1,
                 created_at TIMESTAMPTZ DEFAULT NOW(),
-                is_active BOOLEAN DEFAULT TRUE
+                is_active BOOLEAN DEFAULT TRUE,
+                active_account_id UUID NULL
             );
+        """)
+        # Add active_account_id column if upgrading from older schema
+        await conn.execute("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS active_account_id UUID;
         """)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS accounts (
@@ -384,9 +389,21 @@ async def get_current_user(cred: HTTPAuthorizationCredentials = Depends(security
             "SELECT * FROM users WHERE id = $1 AND is_active = TRUE", 
             uuid.UUID(data["user_id"])
         )
-    if not user:
-        raise HTTPException(401, "User not found")
-    return dict(user)
+        if not user:
+            raise HTTPException(401, "User not found")
+        user = dict(user)
+        # If a sub-account is active, overlay its username/display_name/avatar
+        if user.get("active_account_id"):
+            acc = await conn.fetchrow(
+                "SELECT * FROM accounts WHERE id = $1 AND owner_id = $2",
+                user["active_account_id"], user["id"]
+            )
+            if acc:
+                user["username"] = acc["username"]
+                user["display_name"] = acc["account_name"]
+                if acc.get("avatar_url"):
+                    user["avatar_url"] = acc["avatar_url"]
+    return user
 
 async def check_blocked(conn, user_a, user_b) -> bool:
     row = await conn.fetchrow(
@@ -1185,24 +1202,41 @@ async def send_via_link(code: str, content: str = Form(...)):
 
 # ─── Multiple Accounts (Feature 6) ────────────────────────
 @app.get("/api/accounts")
-async def list_accounts(user=Depends(get_current_user)):
+async def list_accounts(cred: HTTPAuthorizationCredentials = Depends(security)):
+    """List main + sub-accounts. Uses raw token decode (not get_current_user)
+    to avoid overlaying the active sub-account identity."""
+    data = decode_token(cred.credentials)
+    uid = uuid.UUID(data["user_id"])
     async with db_pool.acquire() as conn:
+        # Read raw user (not overlaid by active sub-account)
+        raw_user = await conn.fetchrow(
+            "SELECT * FROM users WHERE id = $1 AND is_active = TRUE", uid
+        )
+        if not raw_user:
+            raise HTTPException(401, "User not found")
         rows = await conn.fetch(
             "SELECT * FROM accounts WHERE owner_id = $1 ORDER BY created_at",
-            user["id"]
+            uid
         )
-        # Include main account
-        main = {
-            "id": str(user["id"]),
-            "username": user["username"],
-            "display_name": user["display_name"],
-            "avatar_url": user["avatar_url"],
-            "is_main": True
-        }
-    accounts = [{"id": str(r["id"]), "username": r["username"], 
-                 "display_name": r["account_name"], "avatar_url": r["avatar_url"],
-                 "is_main": False} for r in rows]
-    return {"main": main, "accounts": accounts}
+        active_acc_id = raw_user.get("active_account_id")
+        
+        result = []
+        # Main account (always show real username, not overlaid)
+        result.append({
+            "id": str(uid),
+            "username": raw_user["username"],
+            "display_name": raw_user["display_name"],
+            "is_active": active_acc_id is None
+        })
+        # Sub-accounts
+        for r in rows:
+            result.append({
+                "id": str(r["id"]),
+                "username": r["username"],
+                "display_name": r["account_name"],
+                "is_active": bool(active_acc_id) and str(r["id"]) == str(active_acc_id)
+            })
+    return result
 
 class CreateAccountReq(BaseModel):
     username: str = Field(..., min_length=3, max_length=30)
@@ -1210,10 +1244,19 @@ class CreateAccountReq(BaseModel):
     display_name: Optional[str] = None
 
 @app.post("/api/accounts")
-async def create_account(req: CreateAccountReq, user=Depends(get_current_user)):
+async def create_account(req: CreateAccountReq, cred: HTTPAuthorizationCredentials = Depends(security)):
+    data = decode_token(cred.credentials)
+    uid = uuid.UUID(data["user_id"])
     async with db_pool.acquire() as conn:
+        raw_user = await conn.fetchrow(
+            "SELECT * FROM users WHERE id = $1 AND is_active = TRUE", uid
+        )
+        if not raw_user:
+            raise HTTPException(401, "User not found")
+        raw_user = dict(raw_user)
+        
         count = await conn.fetchval(
-            "SELECT COUNT(*) FROM accounts WHERE owner_id = $1", user["id"]
+            "SELECT COUNT(*) FROM accounts WHERE owner_id = $1", uid
         )
         if count >= MAX_ACCOUNTS:
             raise HTTPException(400, f"Max {MAX_ACCOUNTS} accounts")
@@ -1228,23 +1271,90 @@ async def create_account(req: CreateAccountReq, user=Depends(get_current_user)):
         await conn.execute(
             """INSERT INTO accounts (id, owner_id, account_name, username, password_hash)
                VALUES ($1, $2, $3, $4, $5)""",
-            acc_id, user["id"], req.display_name or req.username,
+            acc_id, uid, req.display_name or req.username,
             req.username.lower(), pw_hash
         )
-    return {"id": str(acc_id), "username": req.username.lower(), "ok": True}
+        # Set as active
+        await conn.execute(
+            "UPDATE users SET active_account_id = $1 WHERE id = $2",
+            acc_id, uid
+        )
+        posts_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM posts WHERE author_id = $1 AND is_deleted = FALSE", uid
+        )
+    token = create_token(str(uid))
+    return {
+        "token": token,
+        "user": {
+            "id": str(uid),
+            "username": req.username.lower(),
+            "display_name": req.display_name or req.username,
+            "avatar_url": None,
+            "karma": raw_user["karma"],
+            "posts_count": posts_count or 0
+        }
+    }
 
 @app.post("/api/accounts/{acc_id}/switch")
-async def switch_account(acc_id: str, user=Depends(get_current_user)):
-    aid = uuid.UUID(acc_id)
+async def switch_account(acc_id: str, cred: HTTPAuthorizationCredentials = Depends(security)):
+    """Switch active account. Uses raw token decode to get un-overlaid user."""
+    data = decode_token(cred.credentials)
+    uid = uuid.UUID(data["user_id"])
+    
     async with db_pool.acquire() as conn:
+        # Read raw user (not overlaid)
+        raw_user = await conn.fetchrow(
+            "SELECT * FROM users WHERE id = $1 AND is_active = TRUE", uid
+        )
+        if not raw_user:
+            raise HTTPException(401, "User not found")
+        raw_user = dict(raw_user)
+        posts_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM posts WHERE author_id = $1 AND is_deleted = FALSE", uid
+        )
+        
+        # Switch to main account (acc_id == user_id)
+        if acc_id == str(uid):
+            await conn.execute(
+                "UPDATE users SET active_account_id = NULL WHERE id = $1", uid
+            )
+            token = create_token(str(uid))
+            return {
+                "token": token,
+                "user": {
+                    "id": str(uid),
+                    "username": raw_user["username"],
+                    "display_name": raw_user["display_name"],
+                    "avatar_url": raw_user.get("avatar_url"),
+                    "karma": raw_user["karma"],
+                    "posts_count": posts_count or 0
+                }
+            }
+        
+        # Switch to sub-account
+        aid = uuid.UUID(acc_id)
         acc = await conn.fetchrow(
             "SELECT * FROM accounts WHERE id = $1 AND owner_id = $2",
-            aid, user["id"]
+            aid, uid
         )
         if not acc:
             raise HTTPException(404, "Account not found")
-    token = create_token(str(user["id"]))  # same owner, different display
-    return {"token": token, "account": {"username": acc["username"], "display_name": acc["account_name"]}}
+        # Set active account
+        await conn.execute(
+            "UPDATE users SET active_account_id = $1 WHERE id = $2", aid, uid
+        )
+    token = create_token(str(uid))
+    return {
+        "token": token,
+        "user": {
+            "id": str(uid),
+            "username": acc["username"],
+            "display_name": acc["account_name"],
+            "avatar_url": acc.get("avatar_url"),
+            "karma": raw_user["karma"],
+            "posts_count": posts_count or 0
+        }
+    }
 
 # ─── Block System (Feature 7) ─────────────────────────────
 @app.post("/api/block/{target_user_id}")
