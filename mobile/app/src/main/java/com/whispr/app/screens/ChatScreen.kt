@@ -10,10 +10,12 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,7 +34,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.google.gson.Gson
 import com.whispr.app.data.ChatMessage
 import com.whispr.app.data.UploadResponse
@@ -86,24 +92,26 @@ fun ChatScreen(
     var pendingPhotoUri by remember { mutableStateOf<Uri?>(null) }
 
     // ── Upload helpers ────────────────────────────────────────────────
-    fun uploadPickedPhoto(uri: Uri, isOnceView: Boolean) {
+    fun uploadPickedPhoto(uri: Uri, isOnceView: Boolean, destructSeconds: Int? = null, caption: String = "") {
         val file = uriToFile(context, uri, "jpg") ?: return
         viewModel.uploadPhoto(file, isOnceView) { resp ->
             if (resp != null) {
                 val wsMsg = WsMessage(
                     type = "photo",
-                    content = null,
+                    content = caption.ifBlank { null },
                     mediaUrl = resp.url,
-                    isOnceView = isOnceView
+                    isOnceView = isOnceView,
+                    destructSeconds = destructSeconds
                 )
                 ws?.send(Gson().toJson(wsMsg))
                 viewModel.addMessage(
                     ChatMessage(
                         senderId = currentUser?.id ?: "",
-                        content = "",
+                        content = caption,
                         type = "photo",
                         mediaUrl = resp.url,
-                        isOnceView = isOnceView
+                        isOnceView = isOnceView,
+                        ttlSeconds = destructSeconds
                     )
                 )
             }
@@ -362,23 +370,14 @@ fun ChatScreen(
         }
     }
 
-    // Once-view prompt dialog after a photo is picked
-    if (pendingPhotoUri != null) {
-        AlertDialog(
-            onDismissRequest = { pendingPhotoUri = null },
-            title = { Text("Sekali liat?") },
-            text = { Text("Foto hanya bisa dilihat sekali oleh penerima.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    pendingPhotoUri?.let { uploadPickedPhoto(it, true) }
-                    pendingPhotoUri = null
-                }) { Text("Ya") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    pendingPhotoUri?.let { uploadPickedPhoto(it, false) }
-                    pendingPhotoUri = null
-                }) { Text("Tidak") }
+    // Telegram-style photo send preview dialog (shown after a photo is picked)
+    pendingPhotoUri?.let { uri ->
+        TelegramPhotoSendDialog(
+            uri = uri,
+            onDismiss = { pendingPhotoUri = null },
+            onSend = { isOnceView, destructSeconds, caption ->
+                uploadPickedPhoto(uri, isOnceView, destructSeconds, caption)
+                pendingPhotoUri = null
             }
         )
     }
@@ -482,9 +481,18 @@ fun MessageBubble(msg: ChatMessage, isMe: Boolean, onSetTtl: (String, Int) -> Un
  */
 @Composable
 private fun PhotoBubbleContent(msg: ChatMessage, isMe: Boolean) {
-    val fullUrl = ApiClient.getBaseUrl() + (msg.mediaUrl ?: "")
+    val fullUrl = ApiClient.buildMediaUrl(msg.mediaUrl)
     var revealed by remember(msg.id) { mutableStateOf(false) }
     var expired by remember(msg.id) { mutableStateOf(false) }
+    var showFullScreen by remember { mutableStateOf(false) }
+
+    // Full-screen photo viewer
+    if (showFullScreen) {
+        FullScreenPhotoViewer(
+            url = fullUrl,
+            onDismiss = { showFullScreen = false }
+        )
+    }
 
     if (msg.isOnceView) {
         when {
@@ -504,15 +512,31 @@ private fun PhotoBubbleContent(msg: ChatMessage, isMe: Boolean) {
             }
             revealed -> Box(
                 modifier = Modifier
-                    .size(220.dp)
+                    .size(260.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .clickable { revealed = false; expired = true }
             ) {
-                AsyncImage(
-                    model = fullUrl,
+                SubcomposeAsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(fullUrl)
+                        .crossfade(true)
+                        .build(),
                     contentDescription = "Photo",
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    loading = {
+                        Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        }
+                    },
+                    error = {
+                        Box(Modifier.fillMaxSize().background(CardBgAlt), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.BrokenImage, "Error", tint = TextTertiary, modifier = Modifier.size(32.dp))
+                                Text("Failed to load", color = TextTertiary, fontSize = 11.sp)
+                            }
+                        }
+                    }
                 )
                 Box(
                     modifier = Modifier
@@ -532,11 +556,16 @@ private fun PhotoBubbleContent(msg: ChatMessage, isMe: Boolean) {
                 contentAlignment = Alignment.Center
             ) {
                 // Blurred preview behind the lock overlay
-                AsyncImage(
-                    model = fullUrl,
+                SubcomposeAsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(fullUrl)
+                        .crossfade(true)
+                        .build(),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize().blur(18.dp),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    loading = { Box(Modifier.fillMaxSize().background(CardBgAlt)) },
+                    error = { Box(Modifier.fillMaxSize().background(CardBgAlt)) }
                 )
                 Box(
                     modifier = Modifier
@@ -555,14 +584,227 @@ private fun PhotoBubbleContent(msg: ChatMessage, isMe: Boolean) {
             }
         }
     } else {
-        AsyncImage(
-            model = fullUrl,
+        // Regular photo — tap to view full screen
+        SubcomposeAsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(fullUrl)
+                .crossfade(true)
+                .build(),
             contentDescription = "Photo",
             modifier = Modifier
-                .size(220.dp)
-                .clip(RoundedCornerShape(12.dp)),
-            contentScale = ContentScale.Crop
+                .size(width = 260.dp, height = 220.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { showFullScreen = true },
+            contentScale = ContentScale.Crop,
+            loading = {
+                Box(Modifier.fillMaxSize().background(CardBgAlt), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = TextTertiary, modifier = Modifier.size(24.dp))
+                }
+            },
+            error = {
+                Box(Modifier.fillMaxSize().background(CardBgAlt), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.BrokenImage, "Error", tint = TextTertiary, modifier = Modifier.size(32.dp))
+                        Spacer(Modifier.height(4.dp))
+                        Text("Tap to retry", color = TextTertiary, fontSize = 11.sp)
+                    }
+                }
+            }
         )
+        // Caption below photo if present
+        if (!msg.content.isNullOrBlank()) {
+            Text(
+                msg.content,
+                color = if (isMe) Color.White.copy(alpha = 0.9f) else TextPrimary,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp)
+            )
+        }
+    }
+}
+
+/** Full-screen photo viewer — black background, tap to dismiss */
+@Composable
+private fun FullScreenPhotoViewer(url: String, onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .clickable { onDismiss() },
+            contentAlignment = Alignment.Center
+        ) {
+            SubcomposeAsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(url)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Full photo",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit,
+                loading = {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(32.dp))
+                },
+                error = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.BrokenImage, "Error", tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(48.dp))
+                        Spacer(Modifier.height(8.dp))
+                        Text("Failed to load", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+                    }
+                }
+            )
+            // Close button at top-right
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
+            ) {
+                Icon(Icons.Default.Close, "Close", tint = Color.White, modifier = Modifier.size(28.dp))
+            }
+        }
+    }
+}
+
+/**
+ * Telegram-style photo send preview dialog.
+ * Shows the selected photo full-screen with timer options + caption before sending.
+ */
+@Composable
+private fun TelegramPhotoSendDialog(
+    uri: Uri,
+    onDismiss: () -> Unit,
+    onSend: (isOnceView: Boolean, destructSeconds: Int?, caption: String) -> Unit
+) {
+    data class TimerOption(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val isOnceView: Boolean, val destructSeconds: Int?)
+
+    val timerOptions = listOf(
+        TimerOption("View Once", Icons.Default.Visibility, true, null),
+        TimerOption("3s", Icons.Default.Timer, false, 3),
+        TimerOption("10s", Icons.Default.Timer, false, 10),
+        TimerOption("30s", Icons.Default.Timer, false, 30),
+        TimerOption("Keep", Icons.Default.AllInclusive, false, null)
+    )
+    var selectedTimer by remember { mutableStateOf(4) } // default "Keep"
+    var caption by remember { mutableStateOf("") }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
+            // Photo preview
+            AsyncImage(
+                model = uri,
+                contentDescription = "Selected photo",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
+
+            // Top bar: close button + timer selector
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(top = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, "Cancel", tint = Color.White, modifier = Modifier.size(28.dp))
+                    }
+                    Text(
+                        "Send Photo",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f).padding(start = 8.dp)
+                    )
+                }
+                // Timer options row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    timerOptions.forEachIndexed { index, option ->
+                        val isSelected = selectedTimer == index
+                        Surface(
+                            color = if (isSelected) PrimaryPurple else Color.White.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(50),
+                            onClick = { selectedTimer = index },
+                            modifier = Modifier.clip(RoundedCornerShape(50))
+                        ) {
+                            Row(
+                                Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    option.icon,
+                                    null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    option.label,
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Bottom bar: caption + send button
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = caption,
+                    onValueChange = { caption = it },
+                    placeholder = { Text("Add a caption...", color = Color.White.copy(alpha = 0.5f)) },
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = PrimaryPurple,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                        cursorColor = PrimaryPurple
+                    ),
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1
+                )
+                Spacer(Modifier.width(8.dp))
+                FloatingActionButton(
+                    onClick = {
+                        val opt = timerOptions[selectedTimer]
+                        onSend(opt.isOnceView, opt.destructSeconds, caption)
+                    },
+                    containerColor = PrimaryPurple,
+                    contentColor = Color.White
+                ) {
+                    Icon(Icons.Default.Send, "Send", modifier = Modifier.size(24.dp))
+                }
+            }
+        }
     }
 }
 

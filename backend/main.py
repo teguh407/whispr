@@ -989,14 +989,21 @@ async def list_chats(user=Depends(get_current_user)):
                     "SELECT id, username, display_name, avatar_url FROM users WHERE id = $1",
                     r["other_user_id"]
                 )
+        # Generate a unique anonymous alias per chat so the list isn't all "Anonymous"
+        chat_suffix = str(r["id"])[-6:]
         results.append({
             "id": str(r["id"]),
             "other_user": {
                 "id": str(other["id"]) if other else None,
-                "username": other["username"] if other else "Anonymous",
-                "display_name": other["display_name"] if other else "Anonymous",
+                "username": other["username"] if other else f"stranger_{chat_suffix}",
+                "display_name": other["display_name"] if other else f"Stranger #{chat_suffix}",
                 "avatar_url": other["avatar_url"] if other else None
-            } if other else None,
+            } if other else {
+                "id": None,
+                "username": f"stranger_{chat_suffix}",
+                "display_name": f"Stranger #{chat_suffix}",
+                "avatar_url": None
+            },
             "last_message": r["last_message"],
             "last_msg_type": r["last_msg_type"],
             "last_msg_at": r["last_msg_at"].isoformat() if r["last_msg_at"] else None,

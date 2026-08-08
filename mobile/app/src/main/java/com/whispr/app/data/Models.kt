@@ -148,6 +148,7 @@ data class WsMessage(
     val senderId: String? = null,
     @SerializedName("media_url") val mediaUrl: String? = null,
     @SerializedName("is_once_view") val isOnceView: Boolean? = null,
+    @SerializedName("ttl_seconds") val destructSeconds: Int? = null,
     @SerializedName("filename") val filename: String? = null,
     val timestamp: String? = null
 )

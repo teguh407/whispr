@@ -51,6 +51,14 @@ object ApiClient {
 
     fun getBaseUrl() = baseUrl
 
+    /** Build a full media URL from a relative path like "/uploads/photos/xxx.jpg".
+     *  Handles double-slash by trimming the leading slash from the path. */
+    fun buildMediaUrl(path: String?): String {
+        if (path.isNullOrBlank()) return ""
+        val cleanPath = path.trimStart('/')
+        return baseUrl.trimEnd('/') + "/" + cleanPath
+    }
+
     fun getWsUrl(path: String): String {
         val base = baseUrl.replace("http://", "ws://").replace("https://", "wss://").trimEnd('/')
         return "$base$path"

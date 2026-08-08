@@ -678,6 +678,7 @@ private fun EmptyFeed() {
 }
 
 // ── Trending hashtags bar ──
+// Chips match FeedTab style: padding(horizontal=16.dp, vertical=8.dp), fontSize=13.sp, spacedBy(8.dp)
 @Composable
 fun TrendingHashtagsBar(
     trending: List<TrendingTag>,
@@ -688,24 +689,6 @@ fun TrendingHashtagsBar(
         contentPadding = PaddingValues(horizontal = 16.dp),
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
     ) {
-        item {
-            Surface(
-                color = CardBgAlt,
-                shape = RoundedCornerShape(50),
-                modifier = Modifier.clip(RoundedCornerShape(50))
-            ) {
-                Row(
-                    Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Outlined.TrendingUp, null, tint = PrimaryPink,
-                        modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Trending", color = TextSecondary, fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold)
-                }
-            }
-        }
         items(trending) { tag ->
             Surface(
                 color = ChipBg,
@@ -714,14 +697,22 @@ fun TrendingHashtagsBar(
                 modifier = Modifier.clip(RoundedCornerShape(50))
             ) {
                 Row(
-                    Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("#${tag.tag}", color = VioletBright, fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium)
+                    Text(
+                        "#${tag.tag}",
+                        color = VioletBright,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                     if (tag.count > 0) {
-                        Spacer(Modifier.width(4.dp))
-                        Text("${tag.count}", color = TextTertiary, fontSize = 10.sp)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "${tag.count}",
+                            color = TextTertiary,
+                            fontSize = 12.sp
+                        )
                     }
                 }
             }
