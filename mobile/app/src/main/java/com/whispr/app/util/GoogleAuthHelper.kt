@@ -57,9 +57,11 @@ object GoogleAuthHelper {
         } catch (e: androidx.credentials.exceptions.GetCredentialCancellationException) {
             Result.Cancelled
         } catch (e: androidx.credentials.exceptions.NoCredentialException) {
-            Result.Error("No Google account found on this device")
+            Result.Error("No credential: ${e.type} — ${e.message}")
+        } catch (e: androidx.credentials.exceptions.GetCredentialException) {
+            Result.Error("GetCredential failed: ${e.type} — ${e.message}")
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Google Sign-In failed")
+            Result.Error("${e.javaClass.simpleName}: ${e.message}")
         }
     }
 
