@@ -100,10 +100,8 @@ dependencies {
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
 
-    // Credential Manager — Google Sign-In (modern, replaces legacy GoogleSignInClient)
-    implementation("androidx.credentials:credentials:1.2.2")
-    implementation("androidx.credentials:credentials-play-services-auth:1.2.2")
-    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    // Google Sign-In — classic GoogleSignInClient (more reliable than Credential Manager)
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
     
     // Accompanist for permissions
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")

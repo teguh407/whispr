@@ -1,6 +1,8 @@
 package com.whispr.app.screens
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -46,11 +48,23 @@ fun LoginScreen(
     val error by viewModel.error.collectAsState()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var googleError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) onLoginSuccess()
+    }
+
+    // Google Sign-In launcher — uses classic GoogleSignInClient
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        when (val res = GoogleAuthHelper.handleResult(result)) {
+            is GoogleAuthHelper.Result.Success ->
+                viewModel.googleAuth(res.idToken)
+            is GoogleAuthHelper.Result.Cancelled -> { /* user closed picker */ }
+            is GoogleAuthHelper.Result.Error ->
+                googleError = res.message
+        }
     }
 
     Column(
@@ -169,15 +183,8 @@ fun LoginScreen(
         // Google Sign-In
         Surface(
             onClick = {
-                scope.launch {
-                    when (val result = GoogleAuthHelper.signIn(context)) {
-                        is GoogleAuthHelper.Result.Success ->
-                            viewModel.googleAuth(result.idToken)
-                        is GoogleAuthHelper.Result.Cancelled -> { /* user closed picker */ }
-                        is GoogleAuthHelper.Result.Error ->
-                            googleError = result.message
-                    }
-                }
+                val intent = GoogleAuthHelper.getSignInIntent(context)
+                googleSignInLauncher.launch(intent)
             },
             shape = RoundedCornerShape(12.dp),
             color = Color.White,

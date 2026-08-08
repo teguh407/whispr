@@ -1,26 +1,25 @@
 package com.whispr.app.util
 
 import android.content.Context
-import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.GetCredentialResponse
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import android.content.Intent
+import androidx.activity.result.ActivityResult
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 
 /**
- * Google Sign-In via Credential Manager (replaces legacy GoogleSignInClient).
+ * Google Sign-In via classic GoogleSignInClient.
  *
- * Setup required in Google Cloud Console (one-time):
- *  1. Web application OAuth client → used as WEB_CLIENT_ID below + backend GOOGLE_CLIENT_ID
- *  2. Android OAuth client (package com.whispr.app) with BOTH SHA-1s:
- *     - Upload keystore: 75:B4:AE:5D:DF:F8:25:73:D8:A6:3C:F6:C3:75:44:9A:E7:AC:BB:77
- *     - Play App Signing key: Play Console → Setup → App Integrity (after first AAB upload)
+ * More reliable than Credential Manager across all Android versions.
+ * Uses Web application OAuth client ID for ID token.
+ *
+ * Setup required in Google Cloud Console:
+ *  1. Web application OAuth client → WEB_CLIENT_ID below + backend GOOGLE_CLIENT_ID
+ *  2. Android OAuth client (package com.whispr.app) with SHA-1:
+ *     75:B4:AE:5D:DF:F8:25:73:D8:A6:3C:F6:C3:75:44:9A:E7:AC:BB:77
  */
 object GoogleAuthHelper {
 
-    // TODO: replace with your Web application OAuth client ID
-    // (Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client IDs → Web application)
     const val WEB_CLIENT_ID = "148481030059-pff9u5ch19j60hr4dilpfvnhdk0rcjg3.apps.googleusercontent.com"
 
     val isConfigured: Boolean
@@ -33,47 +32,46 @@ object GoogleAuthHelper {
     }
 
     /**
-     * Shows the Google account picker and returns a Google ID token on success.
-     * Must be called from an Activity context (Compose: LocalContext.current).
+     * Returns the Google sign-in intent to launch via ActivityResultLauncher.
      */
-    suspend fun signIn(context: Context): Result {
-        if (!isConfigured) return Result.Error("Google Sign-In not configured yet")
-
-        val credentialManager = CredentialManager.create(context)
-
-        val googleIdOption = GetGoogleIdOption.Builder()
-            .setFilterByAuthorizedAccounts(false) // show ALL accounts, not just previously used
-            .setServerClientId(WEB_CLIENT_ID)
-            .setAutoSelectEnabled(false)
+    fun getSignInIntent(context: Context): Intent {
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(WEB_CLIENT_ID)
+            .requestEmail()
             .build()
-
-        val request = GetCredentialRequest.Builder()
-            .addCredentialOption(googleIdOption)
-            .build()
-
-        return try {
-            val response = credentialManager.getCredential(context, request)
-            handleResponse(response)
-        } catch (e: androidx.credentials.exceptions.GetCredentialCancellationException) {
-            Result.Cancelled
-        } catch (e: androidx.credentials.exceptions.NoCredentialException) {
-            Result.Error("No credential: ${e.type} — ${e.message}")
-        } catch (e: androidx.credentials.exceptions.GetCredentialException) {
-            Result.Error("GetCredential failed: ${e.type} — ${e.message}")
-        } catch (e: Exception) {
-            Result.Error("${e.javaClass.simpleName}: ${e.message}")
-        }
+        val client = GoogleSignIn.getClient(context, gso)
+        return client.signInIntent
     }
 
-    private fun handleResponse(response: GetCredentialResponse): Result {
-        val credential = response.credential
-        return if (credential is CustomCredential &&
-            credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
-        ) {
-            val googleCredential = GoogleIdTokenCredential.createFrom(credential.data)
-            Result.Success(googleCredential.idToken, googleCredential.displayName)
-        } else {
-            Result.Error("Unexpected credential type")
+    /**
+     * Handle the ActivityResult returned by the sign-in intent.
+     */
+    fun handleResult(result: ActivityResult): Result {
+        if (result.data == null) return Result.Error("No data returned from sign-in intent")
+
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        return try {
+            val account = task.getResult(ApiException::class.java)
+            if (account.idToken != null) {
+                Result.Success(account.idToken!!, account.displayName)
+            } else {
+                Result.Error("ID token is null — verify OAuth consent screen is published")
+            }
+        } catch (e: ApiException) {
+            val msg = when (e.statusCode) {
+                12501 -> return Result.Cancelled
+                10 -> "DEVELOPER_ERROR (code 10) — SHA-1 fingerprint or package name mismatch in Google Cloud Console.\n\nExpected SHA-1: 75:B4:AE:5D:DF:F8:25:73:D8:A6:3C:F6:C3:75:44:9A:E7:AC:BB:77\nExpected package: com.whispr.app"
+                7 -> "NETWORK_ERROR (code 7) — no internet connection"
+                4 -> "SIGN_IN_REQUIRED (code 4) — Google account needs re-auth on device"
+                8 -> "INTERNAL_ERROR (code 8) — try again"
+                12500 -> "SIGN_IN_FAILED (code 12500) — update Google Play Services"
+                12502 -> "SIGN_IN_ALREADY_IN_PROGRESS (code 12502)"
+                12503 -> "SIGN_IN_DEPRECATED (code 12503)"
+                else -> "Google Sign-In error: code ${e.statusCode} — ${e.message}"
+            }
+            Result.Error(msg)
+        } catch (e: Exception) {
+            Result.Error("${e.javaClass.simpleName}: ${e.message}")
         }
     }
 }
