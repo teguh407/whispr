@@ -407,7 +407,7 @@ private fun PlayingStep(
     Spacer(Modifier.height(8.dp))
     OutlinedTextField(
         value = answer,
-        onValueChange = if (!submitted) onAnswerChange else {},
+        onValueChange = { if (!submitted) onAnswerChange(it) },
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 120.dp),
