@@ -623,10 +623,10 @@ private data class TypeMeta(
 )
 
 private fun typeMetaFor(type: String?): TypeMeta? = when (type) {
-    "question"   -> TypeMeta("QUESTION",   Icons.Outlined.HelpOutline,     VioletBright)
-    "confession" -> TypeMeta("CONFESSION", Icons.Outlined.Lock,            PrimaryPink)
-    "poll"       -> TypeMeta("POLL",       Icons.Outlined.BarChart,        AccentTeal)
-    "nearby"     -> TypeMeta("NEARBY",     Icons.Outlined.LocationOn,      SuccessGreen)
+    "question"   -> TypeMeta("QUESTION",   Icons.Outlined.HelpOutline,     Color(0xFF9B6CFF))
+    "confession" -> TypeMeta("CONFESSION", Icons.Outlined.Lock,            Color(0xFFE24DA8))
+    "poll"       -> TypeMeta("POLL",       Icons.Outlined.BarChart,        Color(0xFF32D4C4))
+    "nearby"     -> TypeMeta("NEARBY",     Icons.Outlined.LocationOn,      Color(0xFF3ED598))
     "voice"      -> TypeMeta("VOICE",      Icons.Outlined.Mic,             Color(0xFFFF9F4D))
     "photo"      -> TypeMeta("PHOTO",      Icons.Outlined.Image,           Color(0xFF4D8CFF))
     else         -> null   // "anonymous" = default, no badge
