@@ -796,6 +796,25 @@ async def upload_photo(
         "is_once_view": is_once_view
     }
 
+@app.post("/api/upload/document")
+async def upload_document(
+    file: UploadFile = File(...),
+    user=Depends(get_current_user)
+):
+    ext = file.filename.split(".")[-1] if "." in file.filename else "bin"
+    fname = f"{uuid.uuid4().hex}.{ext}"
+    fpath = os.path.join(UPLOAD_DIR, "documents", fname)
+    os.makedirs(os.path.dirname(fpath), exist_ok=True)
+    content = await file.read()
+    with open(fpath, "wb") as f:
+        f.write(content)
+    return {
+        "url": f"/uploads/documents/{fname}",
+        "type": "document",
+        "filename": file.filename,
+        "size": len(content)
+    }
+
 # ─── Once-View Photo View Tracking ────────────────────────
 @app.post("/api/posts/{post_id}/view-once")
 async def view_once_photo(post_id: str, user=Depends(get_current_user)):

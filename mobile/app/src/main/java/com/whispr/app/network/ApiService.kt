@@ -46,11 +46,18 @@ interface ApiService {
     // Upload
     @Multipart
     @POST("api/upload/voice")
-    suspend fun uploadVoice(@Part file: MultipartBody.Part): Response<Map<String, String>>
+    suspend fun uploadVoice(@Part file: MultipartBody.Part): Response<UploadResponse>
 
     @Multipart
     @POST("api/upload/photo")
-    suspend fun uploadPhoto(@Part file: MultipartBody.Part): Response<Map<String, String>>
+    suspend fun uploadPhoto(
+        @Part file: MultipartBody.Part,
+        @Part("is_once_view") isOnceView: RequestBody
+    ): Response<UploadResponse>
+
+    @Multipart
+    @POST("api/upload/document")
+    suspend fun uploadDocument(@Part file: MultipartBody.Part): Response<UploadResponse>
 
     // Chats
     @GET("api/chats")

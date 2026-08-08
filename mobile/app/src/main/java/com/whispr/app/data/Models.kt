@@ -136,7 +136,10 @@ data class ChatMessage(
     @SerializedName("media_url") val mediaUrl: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("ttl_seconds") val ttlSeconds: Int? = null,
-    @SerializedName("expires_at") val expiresAt: String? = null
+    @SerializedName("expires_at") val expiresAt: String? = null,
+    @SerializedName("is_once_view") val isOnceView: Boolean = false,
+    @SerializedName("filename") val filename: String? = null,
+    @SerializedName("file_size") val fileSize: Long? = null
 )
 
 data class WsMessage(
@@ -144,7 +147,18 @@ data class WsMessage(
     val content: String? = null,
     val senderId: String? = null,
     @SerializedName("media_url") val mediaUrl: String? = null,
+    @SerializedName("is_once_view") val isOnceView: Boolean? = null,
+    @SerializedName("filename") val filename: String? = null,
     val timestamp: String? = null
+)
+
+data class UploadResponse(
+    val url: String = "",
+    val type: String = "",
+    @SerializedName("watermark_id") val watermarkId: String? = null,
+    @SerializedName("is_once_view") val isOnceView: Boolean = false,
+    val filename: String? = null,
+    val size: Long? = null
 )
 
 // Links

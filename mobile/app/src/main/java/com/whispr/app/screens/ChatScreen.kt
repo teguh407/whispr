@@ -2,7 +2,10 @@ package com.whispr.app.screens
 
 import android.content.Context
 import android.media.MediaRecorder
+import android.net.Uri
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,16 +22,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.google.gson.Gson
 import com.whispr.app.data.ChatMessage
+import com.whispr.app.data.UploadResponse
 import com.whispr.app.data.WsMessage
 import com.whispr.app.network.ApiClient
 import com.whispr.app.ui.theme.*
@@ -60,6 +67,86 @@ fun ChatScreen(
     var mediaRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var ws by remember { mutableStateOf<WebSocket?>(null) }
 
+    // Anti-screenshot: FLAG_SECURE on the hosting Activity window
+    val activity = context as? android.app.Activity
+    LaunchedEffect(Unit) {
+        activity?.window?.setFlags(
+            android.view.WindowManager.LayoutParams.FLAG_SECURE,
+            android.view.WindowManager.LayoutParams.FLAG_SECURE
+        )
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    // Attachment state
+    var showAttachMenu by remember { mutableStateOf(false) }
+    var pendingPhotoUri by remember { mutableStateOf<Uri?>(null) }
+
+    // ── Upload helpers ────────────────────────────────────────────────
+    fun uploadPickedPhoto(uri: Uri, isOnceView: Boolean) {
+        val file = uriToFile(context, uri, "jpg") ?: return
+        viewModel.uploadPhoto(file, isOnceView) { resp ->
+            if (resp != null) {
+                val wsMsg = WsMessage(
+                    type = "photo",
+                    content = null,
+                    mediaUrl = resp.url,
+                    isOnceView = isOnceView
+                )
+                ws?.send(Gson().toJson(wsMsg))
+                viewModel.addMessage(
+                    ChatMessage(
+                        senderId = currentUser?.id ?: "",
+                        content = "",
+                        type = "photo",
+                        mediaUrl = resp.url,
+                        isOnceView = isOnceView
+                    )
+                )
+            }
+        }
+    }
+
+    fun uploadPickedDocument(uri: Uri) {
+        val file = uriToFile(context, uri, "bin") ?: return
+        viewModel.uploadDocument(file) { resp ->
+            if (resp != null) {
+                val wsMsg = WsMessage(
+                    type = "document",
+                    content = null,
+                    mediaUrl = resp.url,
+                    filename = resp.filename
+                )
+                ws?.send(Gson().toJson(wsMsg))
+                viewModel.addMessage(
+                    ChatMessage(
+                        senderId = currentUser?.id ?: "",
+                        content = "",
+                        type = "document",
+                        mediaUrl = resp.url,
+                        filename = resp.filename,
+                        fileSize = resp.size
+                    )
+                )
+            }
+        }
+    }
+
+    // ── Pickers ───────────────────────────────────────────────────────
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) pendingPhotoUri = uri
+    }
+    val docPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) uploadPickedDocument(uri)
+    }
+
     LaunchedEffect(chatId) {
         viewModel.loadMessages(chatId)
         // Connect WebSocket
@@ -71,13 +158,15 @@ fun ChatScreen(
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
                     val msg = Gson().fromJson(text, WsMessage::class.java)
-                    if (msg.type == "message" && msg.content != null) {
+                    if (msg.type in listOf("message", "photo", "document", "voice", "gif")) {
                         viewModel.addMessage(
                             ChatMessage(
                                 senderId = msg.senderId ?: "",
-                                content = msg.content,
+                                content = msg.content ?: "",
                                 type = msg.type,
                                 mediaUrl = msg.mediaUrl,
+                                isOnceView = msg.isOnceView ?: false,
+                                filename = msg.filename,
                                 createdAt = msg.timestamp
                             )
                         )
@@ -162,6 +251,45 @@ fun ChatScreen(
                     Icon(Icons.Default.Gif, "GIF", tint = PrimaryPurple)
                 }
 
+                // Attachment (+) button with Photo / Document menu
+                Box {
+                    IconButton(onClick = { showAttachMenu = true }) {
+                        Icon(Icons.Default.Add, "Attach", tint = PrimaryPurple)
+                    }
+                    DropdownMenu(
+                        expanded = showAttachMenu,
+                        onDismissRequest = { showAttachMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Photo") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.PhotoLibrary, null,
+                                    tint = VioletBright, modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = {
+                                showAttachMenu = false
+                                photoPicker.launch("image/*")
+                            }
+                        )
+                        Divider()
+                        DropdownMenuItem(
+                            text = { Text("Document") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.InsertDriveFile, null,
+                                    tint = AccentTeal, modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = {
+                                showAttachMenu = false
+                                docPicker.launch("*/*")
+                            }
+                        )
+                    }
+                }
+
                 IconButton(onClick = {
                     if (isRecording) {
                         try {
@@ -233,6 +361,27 @@ fun ChatScreen(
             }
         }
     }
+
+    // Once-view prompt dialog after a photo is picked
+    if (pendingPhotoUri != null) {
+        AlertDialog(
+            onDismissRequest = { pendingPhotoUri = null },
+            title = { Text("Sekali liat?") },
+            text = { Text("Foto hanya bisa dilihat sekali oleh penerima.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingPhotoUri?.let { uploadPickedPhoto(it, true) }
+                    pendingPhotoUri = null
+                }) { Text("Ya") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    pendingPhotoUri?.let { uploadPickedPhoto(it, false) }
+                    pendingPhotoUri = null
+                }) { Text("Tidak") }
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -271,7 +420,8 @@ fun MessageBubble(msg: ChatMessage, isMe: Boolean, onSetTtl: (String, Int) -> Un
                                     color = if (isMe) Color.White else TextPrimary, fontSize = 13.sp)
                             }
                         }
-                        "photo" -> Text("📷 Photo", color = if (isMe) Color.White else TextPrimary)
+                        "photo" -> PhotoBubbleContent(msg, isMe)
+                        "document" -> DocumentBubbleContent(msg, isMe)
                         "gif" -> Text("🎬 GIF", color = if (isMe) Color.White else TextPrimary)
                         else -> Text(msg.content,
                             color = if (isMe) Color.White else TextPrimary, lineHeight = 20.sp,
@@ -325,6 +475,126 @@ fun MessageBubble(msg: ChatMessage, isMe: Boolean, onSetTtl: (String, Int) -> Un
     }
 }
 
+/**
+ * Photo bubble: renders the image via Coil. Once-view photos show a
+ * blurred/locked overlay ("Tap to view once"); after viewing they collapse
+ * into an "Photo expired" placeholder.
+ */
+@Composable
+private fun PhotoBubbleContent(msg: ChatMessage, isMe: Boolean) {
+    val fullUrl = ApiClient.getBaseUrl() + (msg.mediaUrl ?: "")
+    var revealed by remember(msg.id) { mutableStateOf(false) }
+    var expired by remember(msg.id) { mutableStateOf(false) }
+
+    if (msg.isOnceView) {
+        when {
+            expired -> Box(
+                modifier = Modifier
+                    .size(220.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(CardBgAlt),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.HideImage, "Expired",
+                        tint = TextTertiary, modifier = Modifier.size(36.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text("Photo expired", color = TextTertiary, fontSize = 13.sp)
+                }
+            }
+            revealed -> Box(
+                modifier = Modifier
+                    .size(220.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { revealed = false; expired = true }
+            ) {
+                AsyncImage(
+                    model = fullUrl,
+                    contentDescription = "Photo",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.35f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Tap to close", color = Color.White, fontSize = 12.sp)
+                }
+            }
+            else -> Box(
+                modifier = Modifier
+                    .size(220.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(CardBgAlt)
+                    .clickable { revealed = true },
+                contentAlignment = Alignment.Center
+            ) {
+                // Blurred preview behind the lock overlay
+                AsyncImage(
+                    model = fullUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize().blur(18.dp),
+                    contentScale = ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.55f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Lock, "Locked",
+                            tint = Color.White, modifier = Modifier.size(32.dp))
+                        Spacer(Modifier.height(8.dp))
+                        Text("Tap to view once",
+                            color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        }
+    } else {
+        AsyncImage(
+            model = fullUrl,
+            contentDescription = "Photo",
+            modifier = Modifier
+                .size(220.dp)
+                .clip(RoundedCornerShape(12.dp)),
+            contentScale = ContentScale.Crop
+        )
+    }
+}
+
+/** Document bubble: file icon + filename + human-readable file size. */
+@Composable
+private fun DocumentBubbleContent(msg: ChatMessage, isMe: Boolean) {
+    val textColor = if (isMe) Color.White else TextPrimary
+    val subColor = if (isMe) Color.White.copy(alpha = 0.8f) else TextSecondary
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (isMe) Color.White.copy(alpha = 0.18f) else CardBgAlt),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.InsertDriveFile, "File",
+                tint = textColor, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.widthIn(max = 180.dp)) {
+            Text(
+                msg.filename ?: "Document",
+                color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(formatFileSize(msg.fileSize), color = subColor, fontSize = 12.sp)
+        }
+    }
+}
+
 private fun formatBubbleTime(iso: String?): String {
     if (iso.isNullOrBlank()) return ""
     return try {
@@ -333,4 +603,31 @@ private fun formatBubbleTime(iso: String?): String {
         )
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
     } catch (e: Exception) { "" }
+}
+
+private fun formatFileSize(bytes: Long?): String {
+    if (bytes == null || bytes <= 0) return ""
+    return when {
+        bytes < 1024 -> "${bytes} B"
+        bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+        else -> String.format(Locale.getDefault(), "%.1f MB", bytes / (1024.0 * 1024.0))
+    }
+}
+
+/** Copies a content Uri into a cache temp File, preserving the display name when available. */
+private fun uriToFile(context: Context, uri: Uri, fallbackExt: String): File? {
+    return try {
+        val displayName = try {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val nameIdx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (nameIdx >= 0 && cursor.moveToFirst()) cursor.getString(nameIdx) else null
+            }
+        } catch (_: Exception) { null } ?: "upload_${System.currentTimeMillis()}.$fallbackExt"
+
+        val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+        val file = File(context.cacheDir, displayName)
+        file.outputStream().use { out -> inputStream.copyTo(out) }
+        inputStream.close()
+        file
+    } catch (_: Exception) { null }
 }

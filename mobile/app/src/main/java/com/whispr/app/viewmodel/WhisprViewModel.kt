@@ -287,20 +287,36 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
             val part = MultipartBody.Part.createFormData("file", file.name, requestFile)
             val resp = ApiClient.api.uploadVoice(part)
             if (resp.isSuccessful) {
-                resp.body()?.get("url")?.let { onResult(it) }
+                resp.body()?.url?.let { onResult(it) }
             }
         } catch (e: Exception) { err(e) }
     }
 
-    fun uploadPhoto(file: File, onResult: (String) -> Unit) = viewModelScope.launch {
+    fun uploadPhoto(file: File, isOnceView: Boolean, onResult: (UploadResponse?) -> Unit) = viewModelScope.launch {
         try {
             val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
             val part = MultipartBody.Part.createFormData("file", file.name, requestFile)
-            val resp = ApiClient.api.uploadPhoto(part)
+            val onceViewBody = if (isOnceView) "true".toRequestBody("text/plain".toMediaTypeOrNull()) else "false".toRequestBody("text/plain".toMediaTypeOrNull())
+            val resp = ApiClient.api.uploadPhoto(part, onceViewBody)
             if (resp.isSuccessful) {
-                resp.body()?.get("url")?.let { onResult(it) }
+                onResult(resp.body())
+            } else {
+                onResult(null)
             }
-        } catch (e: Exception) { err(e) }
+        } catch (e: Exception) { err(e); onResult(null) }
+    }
+
+    fun uploadDocument(file: File, onResult: (UploadResponse?) -> Unit) = viewModelScope.launch {
+        try {
+            val requestFile = file.asRequestBody("*/*".toMediaTypeOrNull())
+            val part = MultipartBody.Part.createFormData("file", file.name, requestFile)
+            val resp = ApiClient.api.uploadDocument(part)
+            if (resp.isSuccessful) {
+                onResult(resp.body())
+            } else {
+                onResult(null)
+            }
+        } catch (e: Exception) { err(e); onResult(null) }
     }
 
     // Links
