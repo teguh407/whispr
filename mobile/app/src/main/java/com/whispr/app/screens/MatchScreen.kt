@@ -47,9 +47,10 @@ fun MatchScreen(
 
     // Poll match status when we have a matchId
     LaunchedEffect(matchId) {
-        if (matchId != null) {
+        val id = matchId
+        if (id != null) {
             while (matchId != null && screenState in listOf("searching", "playing", "reveal")) {
-                viewModel.matchStatus(matchId!!)
+                viewModel.matchStatus(id)
                 delay(2000) // poll every 2s
             }
         }

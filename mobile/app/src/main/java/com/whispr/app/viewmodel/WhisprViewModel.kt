@@ -197,6 +197,30 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         _currentPrompt.value = null
     }
 
+    // Permanently delete account (Google Play requirement)
+    private val _deleteAccountResult = MutableStateFlow<String?>(null) // null=idle, "ok", or error msg
+    val deleteAccountResult: StateFlow<String?> = _deleteAccountResult
+
+    fun deleteAccount(password: String?) = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.deleteAccount(DeleteAccountRequest(password))
+            if (resp.isSuccessful) {
+                _deleteAccountResult.value = "ok"
+                logout()
+            } else {
+                _deleteAccountResult.value = when (resp.code()) {
+                    400 -> "Password required"
+                    403 -> "Incorrect password"
+                    else -> "Delete failed (${resp.code()})"
+                }
+            }
+        } catch (e: Exception) {
+            _deleteAccountResult.value = e.message ?: "Network error"
+        }
+    }
+
+    fun resetDeleteAccountResult() { _deleteAccountResult.value = null }
+
     fun setBaseUrl(url: String) = viewModelScope.launch {
         ApiClient.setBaseUrl(url)
         TokenStore.saveBaseUrl(ctx(), url)

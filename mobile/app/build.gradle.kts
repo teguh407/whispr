@@ -5,14 +5,14 @@ plugins {
 
 android {
     namespace = "com.whispr.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.whispr.app"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 3
-        versionName = "1.2.0"
+        targetSdk = 35
+        versionCode = 4
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -20,13 +20,24 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("keystore/whispr-upload.jks")
+            storePassword = System.getenv("WHISPR_STORE_PASSWORD") ?: "whispr2026"
+            keyAlias = "whispr"
+            keyPassword = System.getenv("WHISPR_KEY_PASSWORD") ?: "whispr2026"
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -40,7 +51,7 @@ android {
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.5"
+        kotlinCompilerExtensionVersion = "1.5.14"
     }
     packaging {
         resources {

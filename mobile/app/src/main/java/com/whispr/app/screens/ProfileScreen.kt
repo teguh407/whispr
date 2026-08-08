@@ -145,8 +145,8 @@ fun ProfileScreen(
                     BadgePill("Trust $trustScore", Icons.Default.Verified, AccentTeal)
                 }
                 Spacer(Modifier.height(8.dp))
-                if (!user?.bio.isNullOrBlank()) {
-                    Text(user!!.bio!!, color = TextSecondary, fontSize = 14.sp)
+                user?.bio?.takeIf { it.isNotBlank() }?.let { bio ->
+                    Text(bio, color = TextSecondary, fontSize = 14.sp)
                     Spacer(Modifier.height(8.dp))
                 }
 

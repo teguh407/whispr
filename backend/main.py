@@ -13,7 +13,7 @@ from typing import Optional, List, Dict
 from contextlib import asynccontextmanager
 
 from fastapi import (
-    FastAPI, Depends, HTTPException, status,
+    FastAPI, Depends, HTTPException, status, Request,
     WebSocket, WebSocketDisconnect, UploadFile, File,
     Query, Form
 )
@@ -42,6 +42,25 @@ UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 GIPHY_API_KEY = os.getenv("GIPHY_API_KEY", "")  # optional
 MAX_ACCOUNTS = 3
 EDIT_WINDOW_MINUTES = 1440  # 24h — generous edit window
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB upload cap
+
+# ─── Simple in-memory rate limiter (per-IP, per-bucket) ─────
+# key: (bucket, ip) → list[timestamps]. Purged lazily.
+_rate_buckets: Dict[tuple, list] = {}
+
+def rate_limit(bucket: str, limit: int, window_sec: int):
+    """Dependency factory: raise 429 if caller exceeds limit within window."""
+    async def _check(request: Request):
+        ip = request.client.host if request.client else "unknown"
+        key = (bucket, ip)
+        now = datetime.utcnow().timestamp()
+        ts = _rate_buckets.setdefault(key, [])
+        # drop expired
+        _rate_buckets[key] = [t for t in ts if now - t < window_sec]
+        if len(_rate_buckets[key]) >= limit:
+            raise HTTPException(429, f"Rate limit: max {limit} per {window_sec}s")
+        _rate_buckets[key].append(now)
+    return _check
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_DIR, "voice"), exist_ok=True)
@@ -439,7 +458,7 @@ class LoginReq(BaseModel):
     email: Optional[str] = None
     password: str
 
-@app.post("/api/auth/register")
+@app.post("/api/auth/register", dependencies=[Depends(rate_limit("register", 5, 3600))])
 async def register(req: RegisterReq):
     async with db_pool.acquire() as conn:
         exists = await conn.fetchval(
@@ -466,7 +485,7 @@ async def register(req: RegisterReq):
         }
     }
 
-@app.post("/api/auth/login")
+@app.post("/api/auth/login", dependencies=[Depends(rate_limit("login", 10, 300))])
 async def login(req: LoginReq):
     async with db_pool.acquire() as conn:
         # Accept either username or email in whichever field the client sends.
@@ -517,6 +536,33 @@ async def get_me(user=Depends(get_current_user)):
         "age": user.get("age"),
         "has_google": bool(user.get("google_id")),
     }
+
+
+# ─── Account Deletion (Google Play requirement) ─────────────
+class DeleteAccountReq(BaseModel):
+    password: Optional[str] = None  # required for username/password accounts
+
+@app.delete("/api/me")
+async def delete_account(req: DeleteAccountReq, user=Depends(get_current_user)):
+    """Permanently delete the caller's account and all associated data.
+
+    Google Play User Data policy: apps with account creation must offer
+    in-app account deletion. All FK references use ON DELETE CASCADE or
+    SET NULL, so deleting the users row is sufficient.
+    Password required if account has password_hash (Google-only may skip).
+    """
+    uid = user["id"]
+    if user.get("password_hash"):
+        if not req.password:
+            raise HTTPException(400, "Password required to delete account")
+        if not bcrypt.checkpw(req.password.encode(), user["password_hash"].encode()):
+            raise HTTPException(403, "Incorrect password")
+
+    async with db_pool.acquire() as conn:
+        # All FKs cascade or SET NULL — deleting user row is enough
+        await conn.execute("DELETE FROM users WHERE id = $1", uid)
+    return {"deleted": True}
+
 
 class UpdateProfileReq(BaseModel):
     display_name: Optional[str] = None
@@ -569,7 +615,7 @@ class CreatePostReq(BaseModel):
 _POST_TYPES = {"anonymous", "question", "confession", "poll", "voice", "photo", "nearby"}
 _MOODS = {"Happy", "Lonely", "Sad", "Angry", "Excited", "Anxious"}
 
-@app.post("/api/posts")
+@app.post("/api/posts", dependencies=[Depends(rate_limit("posts", 30, 3600))])
 async def create_post(req: CreatePostReq, user=Depends(get_current_user)):
     post_id = uuid.uuid4()
     bg_type = req.bg_type if req.bg_type in ("none", "gradient") else "none"
@@ -760,20 +806,22 @@ async def toggle_upvote(post_id: str, user=Depends(get_current_user)):
                 await award_karma(conn, author_id, "post_upvoted", pid)
             return {"upvoted": True}
 # ─── Upload (Voice Note + Once-View Photo) ─────────────────
-@app.post("/api/upload/voice")
+@app.post("/api/upload/voice", dependencies=[Depends(rate_limit("upload", 30, 3600))])
 async def upload_voice(
     file: UploadFile = File(...),
     user=Depends(get_current_user)
 ):
     ext = file.filename.split(".")[-1] if "." in file.filename else "ogg"
     fname = f"{uuid.uuid4().hex}.{ext}"
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "File too large (max 15 MB)")
     fpath = os.path.join(UPLOAD_DIR, "voice", fname)
-    content = await file.read()
     with open(fpath, "wb") as f:
-        f.write(content)
+        f.write(data)
     return {"url": f"/uploads/voice/{fname}", "type": "voice"}
 
-@app.post("/api/upload/photo")
+@app.post("/api/upload/photo", dependencies=[Depends(rate_limit("upload", 30, 3600))])
 async def upload_photo(
     file: UploadFile = File(...),
     is_once_view: bool = Form(False),
@@ -783,6 +831,8 @@ async def upload_photo(
     fname = f"{uuid.uuid4().hex}.{ext}"
     fpath = os.path.join(UPLOAD_DIR, "photos", fname)
     content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "File too large (max 15 MB)")
     with open(fpath, "wb") as f:
         f.write(content)
     
@@ -796,7 +846,7 @@ async def upload_photo(
         "is_once_view": is_once_view
     }
 
-@app.post("/api/upload/document")
+@app.post("/api/upload/document", dependencies=[Depends(rate_limit("upload", 30, 3600))])
 async def upload_document(
     file: UploadFile = File(...),
     user=Depends(get_current_user)
@@ -806,6 +856,8 @@ async def upload_document(
     fpath = os.path.join(UPLOAD_DIR, "documents", fname)
     os.makedirs(os.path.dirname(fpath), exist_ok=True)
     content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "File too large (max 15 MB)")
     with open(fpath, "wb") as f:
         f.write(content)
     return {

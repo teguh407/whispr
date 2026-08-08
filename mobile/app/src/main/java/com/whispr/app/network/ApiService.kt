@@ -23,6 +23,9 @@ interface ApiService {
     @PUT("api/me")
     suspend fun updateProfile(@Body profile: ProfileUpdate): Response<User>
 
+    @HTTP(method = "DELETE", path = "api/me", hasBody = true)
+    suspend fun deleteAccount(@Body request: DeleteAccountRequest): Response<Unit>
+
     // Posts
     @GET("api/posts")
     suspend fun getPosts(@Query("tag") tag: String? = null, @Query("tab") tab: String? = null): Response<List<Post>>

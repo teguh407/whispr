@@ -428,10 +428,10 @@ private fun DiscoverUserCard(user: DiscoverUser, onMessage: (String) -> Unit) {
                 }
             }
 
-            if (!user.bio.isNullOrBlank()) {
+            user.bio?.takeIf { it.isNotBlank() }?.let { bio ->
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    user.bio!!,
+                    bio,
                     color = TextSecondary,
                     fontSize = 13.sp,
                     maxLines = 2,

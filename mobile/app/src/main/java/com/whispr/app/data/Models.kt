@@ -4,6 +4,7 @@ import com.google.gson.annotations.SerializedName
 
 // Auth
 data class LoginRequest(val email: String, val password: String)
+data class DeleteAccountRequest(val password: String? = null)
 data class RegisterRequest(
     val username: String,
     val password: String,

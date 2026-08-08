@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.whispr.app.network.ApiClient
@@ -29,7 +30,17 @@ fun SettingsScreen(
     onThemeChange: (ThemeMode) -> Unit = {}
 ) {
     var serverUrl by remember { mutableStateOf(ApiClient.getBaseUrl()) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     var saved by remember { mutableStateOf(false) }
+    var showEditBaseUrl by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var deletePassword by remember { mutableStateOf("") }
+    val deleteResult by viewModel.deleteAccountResult.collectAsState()
+
+    // Close dialog + reset on success (logout already fired → app restarts to login)
+    LaunchedEffect(deleteResult) {
+        if (deleteResult == "ok") showDeleteConfirm = false
+    }
     var selectedTheme by remember { mutableStateOf(ThemeMode.System) }
 
     Scaffold(
@@ -145,9 +156,99 @@ fun SettingsScreen(
             // ── About ──
             Text("About", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
             Spacer(Modifier.height(12.dp))
-            Text("Whispr v1.2.0", color = TextSecondary)
+            Text("Whispr v1.3.0", color = TextSecondary)
             Text("Anonymous. Real. You.", color = TextSecondary, fontSize = 13.sp)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Privacy Policy",
+                color = PrimaryPurple,
+                fontSize = 14.sp,
+                modifier = Modifier.clickable {
+                    val intent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("http://43.153.207.36/privacy.html")
+                    )
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    androidx.core.content.ContextCompat.startActivity(
+                        context, intent, null
+                    )
+                }
+            )
+
+            Spacer(Modifier.height(32.dp))
+            Divider(color = TextSecondary.copy(alpha = 0.2f))
+            Spacer(Modifier.height(24.dp))
+
+            // ── Danger Zone (Google Play requires in-app account deletion) ──
+            Text("Danger Zone", fontWeight = FontWeight.Bold, color = ErrorRed, fontSize = 18.sp)
+            Spacer(Modifier.height(12.dp))
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = ErrorRed.copy(alpha = 0.08f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRed.copy(alpha = 0.3f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Delete Account", color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Permanently delete your account and all data. This cannot be undone.",
+                        color = TextSecondary, fontSize = 13.sp
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = { showDeleteConfirm = true; viewModel.resetDeleteAccountResult() },
+                        colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.DeleteForever, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Delete My Account")
+                    }
+                }
+            }
         }
+    }
+
+    // ── Delete confirmation dialog ──
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            containerColor = CardBg,
+            title = { Text("Delete account?", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text(
+                        "All your posts, chats, stories, and karma will be permanently deleted.",
+                        color = TextSecondary, fontSize = 14.sp
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = deletePassword,
+                        onValueChange = { deletePassword = it },
+                        label = { Text("Confirm password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (deleteResult != null && deleteResult != "ok") {
+                        Spacer(Modifier.height(8.dp))
+                        Text(deleteResult!!, color = ErrorRed, fontSize = 13.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.deleteAccount(deletePassword.ifBlank { null }) },
+                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                ) { Text("Delete Forever") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            }
+        )
     }
 }
 
