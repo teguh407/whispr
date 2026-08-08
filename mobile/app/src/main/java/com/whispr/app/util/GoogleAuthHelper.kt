@@ -21,7 +21,7 @@ object GoogleAuthHelper {
 
     // TODO: replace with your Web application OAuth client ID
     // (Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client IDs → Web application)
-    const val WEB_CLIENT_ID = "REPLACE_WITH_WEB_CLIENT_ID.apps.googleusercontent.com"
+    const val WEB_CLIENT_ID = "148481030059-pff9u5ch19j60hr4dilpfvnhdk0rcjg3.apps.googleusercontent.com"
 
     val isConfigured: Boolean
         get() = !WEB_CLIENT_ID.startsWith("REPLACE_")

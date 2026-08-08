@@ -30,6 +30,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Sign debug builds with upload keystore too, so Google Sign-In
+            // works on test APKs (single SHA-1 across all local builds)
+            signingConfig = signingConfigs.getByName("release")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
