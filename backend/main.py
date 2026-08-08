@@ -27,6 +27,13 @@ import asyncpg
 from PIL import Image
 import io
 
+# ─── Feature Routers ───────────────────────────────────────
+# Only include routers for features NOT already implemented inline in main.py.
+# Discovery, polls, stories, games, groups are already inline (tested & working).
+from routers.google_auth import router as google_auth_router, init_google_auth
+from routers.karma import router as karma_router, init_karma
+from routers.auto_destruct import router as auto_destruct_router, init_auto_destruct, shutdown_auto_destruct
+
 # ─── Config ────────────────────────────────────────────────
 SECRET_KEY = os.getenv("WHISPR_SECRET", "whispr-dev-secret-change-me")
 ALGORITHM = "HS256"
@@ -183,12 +190,142 @@ async def init_db():
                 viewed_at TIMESTAMPTZ DEFAULT NOW()
             );
         """)
+        # ── Google OAuth + anonymous identity (idempotent) ──
+        await conn.execute("""
+            ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(64) UNIQUE;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS interests TEXT[] DEFAULT '{}';
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(80);
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(20);
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS age INT;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ DEFAULT NOW();
+        """)
+        # ── Auto-destruct timer for chat messages ──
+        await conn.execute("""
+            ALTER TABLE messages ADD COLUMN IF NOT EXISTS destruct_seconds INT DEFAULT 0;
+            ALTER TABLE messages ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+        """)
+        # ── Link analytics: view counter ──
+        await conn.execute("""
+            ALTER TABLE shareable_links ADD COLUMN IF NOT EXISTS views_count INT DEFAULT 0;
+        """)
+        # ── Karma ledger (audit trail of earn/lose) ──
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS karma_events (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                delta INT NOT NULL,
+                reason VARCHAR(50) NOT NULL,
+                ref_id UUID,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        """)
+        # ── Reports (drives karma loss) ──
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS reports (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                reporter_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+                reason VARCHAR(200),
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE (reporter_id, post_id)
+            );
+        """)
+        # ── Polls (Feed) ──
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS polls (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+                question TEXT NOT NULL,
+                image_url TEXT,
+                expires_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS poll_options (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                poll_id UUID REFERENCES polls(id) ON DELETE CASCADE,
+                label TEXT NOT NULL,
+                position INT DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS poll_votes (
+                poll_id UUID REFERENCES polls(id) ON DELETE CASCADE,
+                option_id UUID REFERENCES poll_options(id) ON DELETE CASCADE,
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                PRIMARY KEY (poll_id, user_id)
+            );
+        """)
+        # ── Stories (24h ephemeral) ──
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS stories (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                author_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                content TEXT,
+                media_url TEXT,
+                media_type VARCHAR(20) DEFAULT 'text',
+                bg_value VARCHAR(40),
+                views_count INT DEFAULT 0,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '24 hours')
+            );
+            CREATE TABLE IF NOT EXISTS story_views (
+                story_id UUID REFERENCES stories(id) ON DELETE CASCADE,
+                viewer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                viewed_at TIMESTAMPTZ DEFAULT NOW(),
+                PRIMARY KEY (story_id, viewer_id)
+            );
+        """)
+        # ── Groups & interest clubs ──
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS groups (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(60) NOT NULL,
+                topic VARCHAR(40) NOT NULL,
+                description TEXT DEFAULT '',
+                is_club BOOLEAN DEFAULT FALSE,
+                owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                members_count INT DEFAULT 0,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS group_members (
+                group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                joined_at TIMESTAMPTZ DEFAULT NOW(),
+                PRIMARY KEY (group_id, user_id)
+            );
+            CREATE TABLE IF NOT EXISTS group_messages (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+                sender_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                content TEXT,
+                msg_type VARCHAR(20) DEFAULT 'text',
+                media_url TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        """)
+        # ── Seed pre-made interest clubs (once) ──
+        for club, topic in [
+            ("Gaming Lounge", "gaming"), ("Music Room", "music"),
+            ("Dating & Crushes", "dating"), ("Venting Space", "venting"),
+            ("Late Night Talks", "lifestyle"), ("Confessions Circle", "confessions"),
+        ]:
+            await conn.execute("""
+                INSERT INTO groups (name, topic, is_club, description)
+                SELECT $1::varchar, $2, TRUE, $3
+                WHERE NOT EXISTS (SELECT 1 FROM groups WHERE name=$1::varchar AND is_club=TRUE)
+            """, club, topic, f"Anonymous {topic} club — hang out and chat.")
         print("✅ Database tables ready")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    await init_google_auth(db_pool)
+    await init_karma(db_pool)
+    await init_auto_destruct(db_pool)
     yield
+    await shutdown_auto_destruct()
     if db_pool:
         await db_pool.close()
 
@@ -199,6 +336,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(google_auth_router)
+app.include_router(karma_router)
+app.include_router(auto_destruct_router)
 
 security = HTTPBearer()
 
@@ -234,6 +375,57 @@ async def check_blocked(conn, user_a, user_b) -> bool:
         user_a, user_b
     )
     return row is not None
+
+# ─── Karma System ──────────────────────────────────────────
+# Earn: +5 post hits 100 views, +3 post upvoted, +1 comment/msg viewed, +1 post created
+# Lose: -5 post reported, -10 post removed
+KARMA_RULES = {
+    "post_created": 1,
+    "post_upvoted": 3,
+    "post_100_views": 5,
+    "message_sent": 1,
+    "call_completed": 2,
+    "post_reported": -5,
+    "post_removed": -10,
+}
+
+def karma_level(karma: int) -> str:
+    if karma >= 500:
+        return "VIP"
+    if karma >= 150:
+        return "Trusted"
+    if karma >= 30:
+        return "Regular"
+    return "Newcomer"
+
+async def award_karma(conn, user_id, reason: str, ref_id=None):
+    """Apply a karma delta from KARMA_RULES and log it to karma_events."""
+    delta = KARMA_RULES.get(reason, 0)
+    if delta == 0:
+        return
+    await conn.execute("UPDATE users SET karma = GREATEST(karma + $1, 0) WHERE id = $2", delta, user_id)
+    await conn.execute(
+        "INSERT INTO karma_events (user_id, delta, reason, ref_id) VALUES ($1,$2,$3,$4)",
+        user_id, delta, reason, ref_id
+    )
+
+# ─── Anonymous username generator ──────────────────────────
+_ADJ = ["Silent", "Hidden", "Shadow", "Mystic", "Velvet", "Crimson", "Frost", "Lunar",
+        "Golden", "Neon", "Wild", "Quiet", "Cosmic", "Ember", "Azure", "Phantom",
+        "Midnight", "Echo", "Drift", "Rogue", "Amber", "Storm", "Zen", "Nova"]
+_NOUN = ["Fox", "Wolf", "Raven", "Owl", "Tiger", "Falcon", "Panda", "Otter", "Lynx",
+         "Cobra", "Heron", "Bear", "Hawk", "Moth", "Deer", "Koi", "Whale", "Sparrow",
+         "Jaguar", "Comet", "Ghost", "Wanderer", "Dreamer", "Voyager"]
+
+async def generate_username(conn) -> str:
+    import random
+    for _ in range(20):
+        candidate = f"{random.choice(_ADJ)}{random.choice(_NOUN)}{random.randint(1000,9999)}".lower()
+        exists = await conn.fetchval("SELECT 1 FROM users WHERE username = $1", candidate)
+        if not exists:
+            return candidate
+    # Fallback: guaranteed unique
+    return f"user{uuid.uuid4().hex[:12]}"
 
 # ─── Auth Routes ───────────────────────────────────────────
 class RegisterReq(BaseModel):
@@ -316,25 +508,51 @@ async def get_me(user=Depends(get_current_user)):
         "bio": user["bio"],
         "avatar_url": user["avatar_url"],
         "karma": user["karma"],
+        "karma_level": karma_level(user["karma"]),
         "days_active": user["days_active"],
-        "posts_count": posts_count
+        "posts_count": posts_count,
+        "interests": list(user["interests"]) if user.get("interests") else [],
+        "city": user.get("city"),
+        "gender": user.get("gender"),
+        "age": user.get("age"),
+        "has_google": bool(user.get("google_id")),
     }
 
 class UpdateProfileReq(BaseModel):
     display_name: Optional[str] = None
     bio: Optional[str] = None
     avatar_url: Optional[str] = None
+    username: Optional[str] = Field(None, min_length=3, max_length=30)
+    interests: Optional[List[str]] = None
+    city: Optional[str] = None
+    gender: Optional[str] = None
+    age: Optional[int] = None
 
 @app.put("/api/me")
 async def update_profile(req: UpdateProfileReq, user=Depends(get_current_user)):
     async with db_pool.acquire() as conn:
+        # Username change: enforce uniqueness
+        if req.username and req.username.lower() != user["username"]:
+            uname = req.username.lower()
+            taken = await conn.fetchval(
+                "SELECT 1 FROM users WHERE username = $1 AND id <> $2", uname, user["id"]
+            )
+            if taken:
+                raise HTTPException(409, "Username taken")
+            await conn.execute("UPDATE users SET username = $1 WHERE id = $2", uname, user["id"])
+        interests = req.interests[:5] if req.interests is not None else None
         await conn.execute(
-            """UPDATE users SET 
+            """UPDATE users SET
                display_name = COALESCE($1, display_name),
                bio = COALESCE($2, bio),
-               avatar_url = COALESCE($3, avatar_url)
-               WHERE id = $4""",
-            req.display_name, req.bio, req.avatar_url, user["id"]
+               avatar_url = COALESCE($3, avatar_url),
+               interests = COALESCE($4, interests),
+               city = COALESCE($5, city),
+               gender = COALESCE($6, gender),
+               age = COALESCE($7, age)
+               WHERE id = $8""",
+            req.display_name, req.bio, req.avatar_url,
+            interests, req.city, req.gender, req.age, user["id"]
         )
     return {"ok": True}
 
@@ -370,10 +588,8 @@ async def create_post(req: CreatePostReq, user=Depends(get_current_user)):
                     "INSERT INTO post_tags (post_id, tag) VALUES ($1, $2)",
                     post_id, tag.lower()[:50]
                 )
-        # Update karma
-        await conn.execute(
-            "UPDATE users SET karma = karma + 1 WHERE id = $1", user["id"]
-        )
+        # Update karma (+1 post created, logged)
+        await award_karma(conn, user["id"], "post_created", post_id)
     return {"id": str(post_id), "ok": True}
 
 @app.get("/api/posts")
@@ -381,33 +597,46 @@ async def list_posts(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=50),
     tag: Optional[str] = None,
+    tab: str = Query("global"),  # hot | global | local | confessions
     user=Depends(get_current_user)
 ):
     offset = (page - 1) * limit
+    tab = tab.lower()
     async with db_pool.acquire() as conn:
+        # Base filters + ordering per tab
+        where = ["p.is_deleted = FALSE"]
+        joins = ""
+        params = [user["id"]]
+        pidx = 2
         if tag:
-            rows = await conn.fetch(
-                """SELECT p.*, u.username, u.display_name, u.avatar_url,
-                   (SELECT COUNT(*) FROM upvotes WHERE post_id = p.id) as vote_count,
-                   EXISTS(SELECT 1 FROM upvotes WHERE post_id = p.id AND user_id = $1) as user_upvoted
-                   FROM posts p 
-                   JOIN users u ON p.author_id = u.id
-                   JOIN post_tags pt ON p.id = pt.post_id
-                   WHERE pt.tag = $2 AND p.is_deleted = FALSE
-                   ORDER BY p.created_at DESC LIMIT $3 OFFSET $4""",
-                user["id"], tag.lower(), limit, offset
-            )
+            joins += " JOIN post_tags pt ON p.id = pt.post_id"
+            where.append(f"pt.tag = ${pidx}")
+            params.append(tag.lower())
+            pidx += 1
+        if tab == "confessions":
+            where.append("p.post_type = 'confession'")
+        elif tab == "local" and user.get("city"):
+            # local: same city as viewer
+            where.append(f"u.city = ${pidx}")
+            params.append(user["city"])
+            pidx += 1
+        # Ordering
+        if tab == "hot":
+            # score = upvotes*2 + replies, then recency
+            order = "ORDER BY (vote_count * 2 + p.replies_count) DESC, p.created_at DESC"
         else:
-            rows = await conn.fetch(
-                """SELECT p.*, u.username, u.display_name, u.avatar_url,
-                   (SELECT COUNT(*) FROM upvotes WHERE post_id = p.id) as vote_count,
-                   EXISTS(SELECT 1 FROM upvotes WHERE post_id = p.id AND user_id = $1) as user_upvoted
-                   FROM posts p 
-                   JOIN users u ON p.author_id = u.id
-                   WHERE p.is_deleted = FALSE
-                   ORDER BY p.created_at DESC LIMIT $2 OFFSET $3""",
-                user["id"], limit, offset
-            )
+            order = "ORDER BY p.created_at DESC"
+        sql = f"""
+            SELECT p.*, u.username, u.display_name, u.avatar_url, u.city,
+               (SELECT COUNT(*) FROM upvotes WHERE post_id = p.id) as vote_count,
+               EXISTS(SELECT 1 FROM upvotes WHERE post_id = p.id AND user_id = $1) as user_upvoted
+            FROM posts p
+            JOIN users u ON p.author_id = u.id{joins}
+            WHERE {' AND '.join(where)}
+            {order} LIMIT ${pidx} OFFSET ${pidx+1}
+        """
+        params.extend([limit, offset])
+        rows = await conn.fetch(sql, *params)
     return [{
         "id": str(r["id"]),
         "content": r["content"],
@@ -423,9 +652,53 @@ async def list_posts(
         "post_type": r["post_type"] if "post_type" in r else "anonymous",
         "mood": r["mood"] if "mood" in r else None,
         "is_mine": str(r["author_id"]) == str(user["id"]),
-        "author": {"id": str(r["author_id"]), "username": r["username"], "display_name": r["display_name"], "avatar_url": r["avatar_url"]},
+        "author": {"id": str(r["author_id"]), "username": r["username"], "display_name": r["display_name"], "avatar_url": r["avatar_url"], "city": r["city"]},
         "created_at": r["created_at"].isoformat()
     } for r in rows]
+
+# ─── Trending hashtags bar ─────────────────────────────────
+@app.get("/api/trending")
+async def trending_tags(limit: int = Query(10, ge=1, le=30), user=Depends(get_current_user)):
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT pt.tag, COUNT(*) as cnt
+               FROM post_tags pt JOIN posts p ON p.id = pt.post_id
+               WHERE p.is_deleted = FALSE AND p.created_at > NOW() - INTERVAL '7 days'
+               GROUP BY pt.tag ORDER BY cnt DESC, pt.tag LIMIT $1""",
+            limit
+        )
+    return [{"tag": r["tag"], "count": r["cnt"]} for r in rows]
+
+# ─── Report a post (drives karma loss) ─────────────────────
+class ReportReq(BaseModel):
+    reason: Optional[str] = None
+
+@app.post("/api/posts/{post_id}/report")
+async def report_post(post_id: str, req: ReportReq, user=Depends(get_current_user)):
+    pid = uuid.UUID(post_id)
+    async with db_pool.acquire() as conn:
+        post = await conn.fetchrow("SELECT author_id FROM posts WHERE id=$1 AND is_deleted=FALSE", pid)
+        if not post:
+            raise HTTPException(404, "Post not found")
+        if str(post["author_id"]) == str(user["id"]):
+            raise HTTPException(400, "Can't report your own post")
+        dup = await conn.fetchval(
+            "SELECT 1 FROM reports WHERE reporter_id=$1 AND post_id=$2", user["id"], pid
+        )
+        if dup:
+            raise HTTPException(409, "Already reported")
+        await conn.execute(
+            "INSERT INTO reports (reporter_id, post_id, reason) VALUES ($1,$2,$3)",
+            user["id"], pid, (req.reason or "")[:200]
+        )
+        # Author loses karma per report
+        await award_karma(conn, post["author_id"], "post_reported", pid)
+        # Auto-remove threshold: 5 reports → soft delete + extra penalty
+        report_count = await conn.fetchval("SELECT COUNT(*) FROM reports WHERE post_id=$1", pid)
+        if report_count >= 5:
+            await conn.execute("UPDATE posts SET is_deleted = TRUE WHERE id = $1", pid)
+            await award_karma(conn, post["author_id"], "post_removed", pid)
+    return {"ok": True, "reports": report_count}
 
 @app.put("/api/posts/{post_id}")
 async def edit_post(post_id: str, content: str = Form(...), user=Depends(get_current_user)):
@@ -464,6 +737,7 @@ async def delete_post(post_id: str, user=Depends(get_current_user)):
 async def toggle_upvote(post_id: str, user=Depends(get_current_user)):
     pid = uuid.UUID(post_id)
     async with db_pool.acquire() as conn:
+        author_id = await conn.fetchval("SELECT author_id FROM posts WHERE id = $1", pid)
         existing = await conn.fetchrow(
             "SELECT 1 FROM upvotes WHERE user_id = $1 AND post_id = $2",
             user["id"], pid
@@ -481,8 +755,10 @@ async def toggle_upvote(post_id: str, user=Depends(get_current_user)):
                 user["id"], pid
             )
             await conn.execute("UPDATE posts SET upvotes = upvotes + 1 WHERE id = $1", pid)
+            # Award karma to author (not self-upvote)
+            if author_id and str(author_id) != str(user["id"]):
+                await award_karma(conn, author_id, "post_upvoted", pid)
             return {"upvoted": True}
-
 # ─── Upload (Voice Note + Once-View Photo) ─────────────────
 @app.post("/api/upload/voice")
 async def upload_voice(
@@ -576,6 +852,28 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+class GroupManager:
+    def __init__(self):
+        self.rooms: Dict[str, Dict[str, WebSocket]] = {}  # room_key -> {user_id: ws}
+
+    def add(self, key: str, user_id: str, ws: WebSocket):
+        self.rooms.setdefault(key, {})[user_id] = ws
+
+    def remove(self, key: str, user_id: str):
+        if key in self.rooms:
+            self.rooms[key].pop(user_id, None)
+            if not self.rooms[key]:
+                self.rooms.pop(key, None)
+
+    async def broadcast(self, key: str, data: dict):
+        for uid, ws in list(self.rooms.get(key, {}).items()):
+            try:
+                await ws.send_json(data)
+            except Exception:
+                self.rooms.get(key, {}).pop(uid, None)
+
+group_manager = GroupManager()
+
 @app.websocket("/ws/chat/{token}")
 async def websocket_chat(ws: WebSocket, token: str):
     try:
@@ -613,17 +911,20 @@ async def websocket_chat(ws: WebSocket, token: str):
                     continue
                 
                 msg_id = uuid.uuid4()
+                destruct_seconds = msg.get("destruct_seconds")
+                expires_at = None
+                if destruct_seconds and int(destruct_seconds) > 0:
+                    expires_at = datetime.utcnow() + timedelta(seconds=int(destruct_seconds))
                 await conn.execute(
-                    """INSERT INTO messages (id, chat_id, sender_id, content, msg_type, media_url, is_once_view)
-                       VALUES ($1, $2, $3, $4, $5, $6, $7)""",
-                    msg_id, chat_id, uuid.UUID(user_id), content, msg_type, media_url, is_once_view
+                    """INSERT INTO messages (id, chat_id, sender_id, content, msg_type, media_url, is_once_view, destruct_seconds, expires_at)
+                       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)""",
+                    msg_id, chat_id, uuid.UUID(user_id), content, msg_type, media_url, is_once_view,
+                    int(destruct_seconds) if destruct_seconds else None, expires_at
                 )
                 await conn.execute(
                     "UPDATE chats SET last_message_at = NOW() WHERE id = $1", chat_id
                 )
-                await conn.execute(
-                    "UPDATE users SET karma = karma + 1 WHERE id = $1", uuid.UUID(user_id)
-                )
+                await award_karma(conn, uuid.UUID(user_id), "message_sent", chat_id)
             
             payload = {
                 "id": str(msg_id),
@@ -633,6 +934,8 @@ async def websocket_chat(ws: WebSocket, token: str):
                 "type": msg_type,
                 "media_url": media_url,
                 "is_once_view": is_once_view,
+                "destruct_seconds": int(destruct_seconds) if destruct_seconds else None,
+                "expires_at": expires_at.isoformat() if expires_at else None,
                 "created_at": datetime.utcnow().isoformat()
             }
             
@@ -1032,6 +1335,477 @@ async def websocket_call(ws: WebSocket, token: str):
 
 # ─── Serve uploads ─────────────────────────────────────────
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+# ═══════════════════════════════════════════════════════════
+# DISCOVERY / MATCHING (Feature: radius, interests, karma, gender/age)
+# ═══════════════════════════════════════════════════════════
+import math
+
+def _haversine_km(lat1, lng1, lat2, lng2):
+    R = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lng2 - lng1)
+    a = math.sin(dphi/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dlmb/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+class LocationReq(BaseModel):
+    lat: float
+    lng: float
+    city: Optional[str] = None
+
+@app.put("/api/me/location")
+async def update_location(req: LocationReq, user=Depends(get_current_user)):
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE users SET lat=$1, lng=$2, city=COALESCE($3, city), last_seen=NOW() WHERE id=$4",
+            req.lat, req.lng, req.city, user["id"]
+        )
+    return {"ok": True}
+
+@app.get("/api/discover")
+async def discover(
+    radius_km: Optional[float] = Query(None, ge=1, le=20000),
+    interests: Optional[str] = Query(None, description="comma-separated tags"),
+    min_karma: int = Query(0, ge=0),
+    gender: Optional[str] = None,
+    min_age: Optional[int] = Query(None, ge=13),
+    max_age: Optional[int] = Query(None, le=120),
+    limit: int = Query(30, ge=1, le=100),
+    user=Depends(get_current_user)
+):
+    """Find people to connect with. Filters: geo radius, shared interests,
+    minimum karma, gender, age range. Blocked users excluded."""
+    want_tags = [t.strip().lower() for t in interests.split(",")] if interests else []
+    async with db_pool.acquire() as conn:
+        where = ["u.id <> $1", "u.is_active = TRUE"]
+        params = [user["id"]]
+        pidx = 2
+        if min_karma > 0:
+            where.append(f"u.karma >= ${pidx}"); params.append(min_karma); pidx += 1
+        if gender:
+            where.append(f"u.gender = ${pidx}"); params.append(gender.lower()); pidx += 1
+        if min_age is not None:
+            where.append(f"u.age >= ${pidx}"); params.append(min_age); pidx += 1
+        if max_age is not None:
+            where.append(f"u.age <= ${pidx}"); params.append(max_age); pidx += 1
+        if want_tags:
+            where.append(f"u.interests && ${pidx}::text[]"); params.append(want_tags); pidx += 1
+        # Exclude blocked (either direction)
+        where.append(f"""NOT EXISTS (SELECT 1 FROM blocks b
+            WHERE (b.blocker_id=$1 AND b.blocked_id=u.id)
+               OR (b.blocker_id=u.id AND b.blocked_id=$1))""")
+        sql = f"""
+            SELECT u.id, u.username, u.display_name, u.avatar_url, u.bio,
+                   u.karma, u.interests, u.city, u.gender, u.age, u.lat, u.lng, u.last_seen
+            FROM users u
+            WHERE {' AND '.join(where)}
+            ORDER BY u.last_seen DESC NULLS LAST, u.karma DESC
+            LIMIT ${pidx}
+        """
+        params.append(limit * 3)  # over-fetch for geo post-filter
+        rows = await conn.fetch(sql, *params)
+
+    me_lat, me_lng = user.get("lat"), user.get("lng")
+    results = []
+    for r in rows:
+        dist = None
+        if me_lat is not None and me_lng is not None and r["lat"] is not None and r["lng"] is not None:
+            dist = round(_haversine_km(me_lat, me_lng, r["lat"], r["lng"]), 1)
+            if radius_km is not None and dist > radius_km:
+                continue
+        elif radius_km is not None and me_lat is not None:
+            # viewer has location but target doesn't → skip under strict radius
+            continue
+        shared = list(set(want_tags) & set(r["interests"] or [])) if want_tags else []
+        results.append({
+            "id": str(r["id"]),
+            "username": r["username"],
+            "display_name": r["display_name"],
+            "avatar_url": r["avatar_url"],
+            "bio": r["bio"],
+            "karma": r["karma"],
+            "karma_level": karma_level(r["karma"]),
+            "interests": list(r["interests"] or []),
+            "shared_interests": shared,
+            "city": r["city"],
+            "gender": r["gender"],
+            "age": r["age"],
+            "distance_km": dist,
+        })
+        if len(results) >= limit:
+            break
+    return results
+
+# ═══════════════════════════════════════════════════════════
+# POLLS (Feed)
+# ═══════════════════════════════════════════════════════════
+class CreatePollReq(BaseModel):
+    question: str = Field(..., min_length=1, max_length=300)
+    options: List[str] = Field(..., min_items=2, max_items=6)
+    image_url: Optional[str] = None
+    expires_hours: Optional[int] = Field(None, ge=1, le=168)
+    tags: Optional[List[str]] = []
+
+@app.post("/api/polls")
+async def create_poll(req: CreatePollReq, user=Depends(get_current_user)):
+    post_id = uuid.uuid4()
+    poll_id = uuid.uuid4()
+    expires = (datetime.utcnow() + timedelta(hours=req.expires_hours)) if req.expires_hours else None
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO posts (id, author_id, content, post_type)
+               VALUES ($1,$2,$3,'poll')""",
+            post_id, user["id"], req.question
+        )
+        await conn.execute(
+            "INSERT INTO polls (id, post_id, question, image_url, expires_at) VALUES ($1,$2,$3,$4,$5)",
+            poll_id, post_id, req.question, req.image_url, expires
+        )
+        for i, label in enumerate(req.options):
+            await conn.execute(
+                "INSERT INTO poll_options (poll_id, label, position) VALUES ($1,$2,$3)",
+                poll_id, label[:120], i
+            )
+        for tag in (req.tags or [])[:5]:
+            await conn.execute("INSERT INTO post_tags (post_id, tag) VALUES ($1,$2) ON CONFLICT DO NOTHING",
+                               post_id, tag.lower()[:50])
+        await award_karma(conn, user["id"], "post_created", post_id)
+    return {"poll_id": str(poll_id), "post_id": str(post_id), "ok": True}
+
+async def _poll_payload(conn, poll_id, user_id):
+    poll = await conn.fetchrow("SELECT * FROM polls WHERE id=$1", poll_id)
+    if not poll:
+        return None
+    opts = await conn.fetch(
+        """SELECT o.id, o.label, o.position,
+           (SELECT COUNT(*) FROM poll_votes v WHERE v.option_id=o.id) as votes
+           FROM poll_options o WHERE o.poll_id=$1 ORDER BY o.position""", poll_id
+    )
+    my_vote = await conn.fetchval(
+        "SELECT option_id FROM poll_votes WHERE poll_id=$1 AND user_id=$2", poll_id, user_id
+    )
+    total = sum(o["votes"] for o in opts) or 0
+    return {
+        "poll_id": str(poll_id),
+        "question": poll["question"],
+        "image_url": poll["image_url"],
+        "expires_at": poll["expires_at"].isoformat() if poll["expires_at"] else None,
+        "total_votes": total,
+        "my_vote": str(my_vote) if my_vote else None,
+        "options": [{
+            "id": str(o["id"]), "label": o["label"], "votes": o["votes"],
+            "pct": round(o["votes"] * 100 / total, 1) if total else 0.0
+        } for o in opts]
+    }
+
+@app.get("/api/polls/{poll_id}")
+async def get_poll(poll_id: str, user=Depends(get_current_user)):
+    async with db_pool.acquire() as conn:
+        payload = await _poll_payload(conn, uuid.UUID(poll_id), user["id"])
+    if not payload:
+        raise HTTPException(404, "Poll not found")
+    return payload
+
+@app.post("/api/polls/{poll_id}/vote")
+async def vote_poll(poll_id: str, option_id: str = Form(...), user=Depends(get_current_user)):
+    pid = uuid.UUID(poll_id)
+    oid = uuid.UUID(option_id)
+    async with db_pool.acquire() as conn:
+        poll = await conn.fetchrow("SELECT * FROM polls WHERE id=$1", pid)
+        if not poll:
+            raise HTTPException(404, "Poll not found")
+        if poll["expires_at"] and poll["expires_at"].replace(tzinfo=None) < datetime.utcnow():
+            raise HTTPException(410, "Poll expired")
+        valid = await conn.fetchval("SELECT 1 FROM poll_options WHERE id=$1 AND poll_id=$2", oid, pid)
+        if not valid:
+            raise HTTPException(400, "Invalid option")
+        await conn.execute(
+            """INSERT INTO poll_votes (poll_id, option_id, user_id) VALUES ($1,$2,$3)
+               ON CONFLICT (poll_id, user_id) DO UPDATE SET option_id=$2, created_at=NOW()""",
+            pid, oid, user["id"]
+        )
+        payload = await _poll_payload(conn, pid, user["id"])
+    return payload
+
+# ═══════════════════════════════════════════════════════════
+# STORIES (24h ephemeral)
+# ═══════════════════════════════════════════════════════════
+class CreateStoryReq(BaseModel):
+    content: Optional[str] = None
+    media_url: Optional[str] = None
+    media_type: str = "text"   # text|photo|voice
+    bg_value: Optional[str] = None
+
+@app.post("/api/stories")
+async def create_story(req: CreateStoryReq, user=Depends(get_current_user)):
+    if not req.content and not req.media_url:
+        raise HTTPException(400, "Story needs content or media")
+    sid = uuid.uuid4()
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO stories (id, author_id, content, media_url, media_type, bg_value)
+               VALUES ($1,$2,$3,$4,$5,$6)""",
+            sid, user["id"], req.content, req.media_url, req.media_type, req.bg_value
+        )
+    return {"id": str(sid), "ok": True}
+
+@app.get("/api/stories")
+async def list_stories(user=Depends(get_current_user)):
+    """Active (non-expired) stories, grouped by author, blocked excluded."""
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT s.*, u.username, u.display_name, u.avatar_url,
+                EXISTS(SELECT 1 FROM story_views v WHERE v.story_id=s.id AND v.viewer_id=$1) as seen
+               FROM stories s JOIN users u ON s.author_id = u.id
+               WHERE s.expires_at > NOW()
+                 AND NOT EXISTS (SELECT 1 FROM blocks b
+                    WHERE (b.blocker_id=$1 AND b.blocked_id=s.author_id)
+                       OR (b.blocker_id=s.author_id AND b.blocked_id=$1))
+               ORDER BY s.created_at DESC""",
+            user["id"]
+        )
+    grouped: Dict[str, dict] = {}
+    for r in rows:
+        aid = str(r["author_id"])
+        grouped.setdefault(aid, {
+            "author": {"id": aid, "username": r["username"],
+                       "display_name": r["display_name"], "avatar_url": r["avatar_url"]},
+            "all_seen": True, "stories": []
+        })
+        if not r["seen"]:
+            grouped[aid]["all_seen"] = False
+        grouped[aid]["stories"].append({
+            "id": str(r["id"]), "content": r["content"], "media_url": r["media_url"],
+            "media_type": r["media_type"], "bg_value": r["bg_value"],
+            "views_count": r["views_count"], "seen": r["seen"],
+            "created_at": r["created_at"].isoformat(),
+            "expires_at": r["expires_at"].isoformat(),
+        })
+    return list(grouped.values())
+
+@app.post("/api/stories/{story_id}/view")
+async def view_story(story_id: str, user=Depends(get_current_user)):
+    sid = uuid.UUID(story_id)
+    async with db_pool.acquire() as conn:
+        st = await conn.fetchrow("SELECT author_id FROM stories WHERE id=$1 AND expires_at > NOW()", sid)
+        if not st:
+            raise HTTPException(404, "Story not found or expired")
+        if str(st["author_id"]) != str(user["id"]):
+            inserted = await conn.fetchval(
+                """INSERT INTO story_views (story_id, viewer_id) VALUES ($1,$2)
+                   ON CONFLICT DO NOTHING RETURNING 1""", sid, user["id"])
+            if inserted:
+                await conn.execute("UPDATE stories SET views_count = views_count + 1 WHERE id=$1", sid)
+    return {"ok": True}
+
+# ═══════════════════════════════════════════════════════════
+# Q&A GAME MODES (Never Have I Ever, 3 Words, Would You Rather)
+# ═══════════════════════════════════════════════════════════
+_GAME_PROMPTS = {
+    "never_have_i_ever": [
+        "Never have I ever ghosted someone.",
+        "Never have I ever stalked an ex on social media.",
+        "Never have I ever lied about my age online.",
+        "Never have I ever sent a text to the wrong person.",
+        "Never have I ever pretended to be busy to avoid someone.",
+        "Never have I ever had a crush on a friend's partner.",
+        "Never have I ever faked being sick to skip work.",
+        "Never have I ever cried in a public place.",
+    ],
+    "three_words": [
+        "Describe your ex in 3 words.",
+        "Describe yourself in 3 words.",
+        "Your ideal weekend in 3 words.",
+        "Describe your crush in 3 words.",
+        "Your last relationship in 3 words.",
+        "Describe your mood tonight in 3 words.",
+    ],
+    "would_you_rather": [
+        "Would you rather be invisible or read minds?",
+        "Would you rather never feel lonely or never feel embarrassed?",
+        "Would you rather text your ex or your boss right now?",
+        "Would you rather know when you'll die or how you'll die?",
+        "Would you rather always tell the truth or always lie?",
+    ],
+}
+
+@app.get("/api/games/modes")
+async def game_modes(user=Depends(get_current_user)):
+    return [
+        {"key": "never_have_i_ever", "title": "Never Have I Ever", "emoji": "🙈"},
+        {"key": "three_words", "title": "3 Words", "emoji": "✏️"},
+        {"key": "would_you_rather", "title": "Would You Rather", "emoji": "🤔"},
+    ]
+
+@app.get("/api/games/{mode}/prompt")
+async def game_prompt(mode: str, user=Depends(get_current_user)):
+    import random
+    prompts = _GAME_PROMPTS.get(mode)
+    if not prompts:
+        raise HTTPException(404, "Unknown game mode")
+    return {"mode": mode, "prompt": random.choice(prompts)}
+
+class GamePostReq(BaseModel):
+    mode: str
+    prompt: str
+    answer: str = Field(..., min_length=1, max_length=500)
+    tags: Optional[List[str]] = []
+
+@app.post("/api/games/answer")
+async def post_game_answer(req: GamePostReq, user=Depends(get_current_user)):
+    """Post a game answer as a special post (shows up in feed as a game card)."""
+    if req.mode not in _GAME_PROMPTS:
+        raise HTTPException(404, "Unknown game mode")
+    post_id = uuid.uuid4()
+    content = f"[{req.mode}] {req.prompt}\n\n{req.answer}"
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO posts (id, author_id, content, post_type)
+               VALUES ($1,$2,$3,'question')""",
+            post_id, user["id"], content
+        )
+        await conn.execute("INSERT INTO post_tags (post_id, tag) VALUES ($1,$2) ON CONFLICT DO NOTHING",
+                           post_id, req.mode)
+        await award_karma(conn, user["id"], "post_created", post_id)
+    return {"id": str(post_id), "ok": True}
+
+# ═══════════════════════════════════════════════════════════
+# GROUPS & INTEREST CLUBS
+# ═══════════════════════════════════════════════════════════
+class CreateGroupReq(BaseModel):
+    name: str = Field(..., min_length=2, max_length=60)
+    topic: str = Field(..., max_length=40)
+    description: Optional[str] = ""
+
+@app.get("/api/groups")
+async def list_groups(
+    topic: Optional[str] = None,
+    clubs_only: bool = False,
+    mine: bool = False,
+    user=Depends(get_current_user)
+):
+    async with db_pool.acquire() as conn:
+        where = ["1=1"]; params = []; pidx = 1
+        if topic:
+            where.append(f"g.topic = ${pidx}"); params.append(topic.lower()); pidx += 1
+        if clubs_only:
+            where.append("g.is_club = TRUE")
+        if mine:
+            where.append(f"EXISTS(SELECT 1 FROM group_members m WHERE m.group_id=g.id AND m.user_id=${pidx})")
+            params.append(user["id"]); pidx += 1
+        params.append(user["id"])  # for is_member flag
+        rows = await conn.fetch(f"""
+            SELECT g.*,
+               EXISTS(SELECT 1 FROM group_members m WHERE m.group_id=g.id AND m.user_id=${pidx}) as is_member
+            FROM groups g WHERE {' AND '.join(where)}
+            ORDER BY g.is_club DESC, g.members_count DESC, g.created_at DESC
+        """, *params)
+    return [{
+        "id": str(r["id"]), "name": r["name"], "topic": r["topic"],
+        "description": r["description"], "is_club": r["is_club"],
+        "members_count": r["members_count"], "is_member": r["is_member"],
+        "created_at": r["created_at"].isoformat()
+    } for r in rows]
+
+@app.post("/api/groups")
+async def create_group(req: CreateGroupReq, user=Depends(get_current_user)):
+    gid = uuid.uuid4()
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO groups (id, name, topic, description, is_club, owner_id, members_count)
+               VALUES ($1,$2,$3,$4,FALSE,$5,1)""",
+            gid, req.name, req.topic.lower(), req.description or "", user["id"]
+        )
+        await conn.execute("INSERT INTO group_members (group_id, user_id) VALUES ($1,$2)", gid, user["id"])
+    return {"id": str(gid), "ok": True}
+
+@app.post("/api/groups/{group_id}/join")
+async def join_group(group_id: str, user=Depends(get_current_user)):
+    gid = uuid.UUID(group_id)
+    async with db_pool.acquire() as conn:
+        g = await conn.fetchval("SELECT 1 FROM groups WHERE id=$1", gid)
+        if not g:
+            raise HTTPException(404, "Group not found")
+        inserted = await conn.fetchval(
+            """INSERT INTO group_members (group_id, user_id) VALUES ($1,$2)
+               ON CONFLICT DO NOTHING RETURNING 1""", gid, user["id"])
+        if inserted:
+            await conn.execute("UPDATE groups SET members_count = members_count + 1 WHERE id=$1", gid)
+    return {"ok": True}
+
+@app.post("/api/groups/{group_id}/leave")
+async def leave_group(group_id: str, user=Depends(get_current_user)):
+    gid = uuid.UUID(group_id)
+    async with db_pool.acquire() as conn:
+        deleted = await conn.fetchval(
+            "DELETE FROM group_members WHERE group_id=$1 AND user_id=$2 RETURNING 1", gid, user["id"])
+        if deleted:
+            await conn.execute("UPDATE groups SET members_count = GREATEST(members_count - 1, 0) WHERE id=$1", gid)
+    return {"ok": True}
+
+@app.get("/api/groups/{group_id}/messages")
+async def group_messages(group_id: str, limit: int = Query(50, ge=1, le=100), user=Depends(get_current_user)):
+    gid = uuid.UUID(group_id)
+    async with db_pool.acquire() as conn:
+        member = await conn.fetchval("SELECT 1 FROM group_members WHERE group_id=$1 AND user_id=$2", gid, user["id"])
+        if not member:
+            raise HTTPException(403, "Join the group first")
+        rows = await conn.fetch(
+            """SELECT gm.*, u.username, u.display_name, u.avatar_url
+               FROM group_messages gm LEFT JOIN users u ON gm.sender_id = u.id
+               WHERE gm.group_id=$1 ORDER BY gm.created_at DESC LIMIT $2""", gid, limit
+        )
+    return [{
+        "id": str(r["id"]), "content": r["content"], "msg_type": r["msg_type"],
+        "media_url": r["media_url"],
+        "sender": {"id": str(r["sender_id"]) if r["sender_id"] else None,
+                   "username": r["username"] or "Anonymous",
+                   "display_name": r["display_name"] or "Anonymous",
+                   "avatar_url": r["avatar_url"]},
+        "created_at": r["created_at"].isoformat()
+    } for r in reversed(rows)]
+
+@app.websocket("/ws/group/{group_id}/{token}")
+async def websocket_group(ws: WebSocket, group_id: str, token: str):
+    try:
+        data = decode_token(token)
+        user_id = data["user_id"]
+        gid = uuid.UUID(group_id)
+    except Exception:
+        await ws.close(code=4001)
+        return
+    async with db_pool.acquire() as conn:
+        member = await conn.fetchval("SELECT 1 FROM group_members WHERE group_id=$1 AND user_id=$2", gid, uuid.UUID(user_id))
+    if not member:
+        await ws.close(code=4003)
+        return
+    key = f"group_{group_id}"
+    group_manager.add(key, user_id, ws)
+    await ws.accept()
+    try:
+        while True:
+            msg = await ws.receive_json()
+            content = msg.get("content", "")
+            msg_type = msg.get("type", "text")
+            media_url = msg.get("media_url")
+            mid = uuid.uuid4()
+            async with db_pool.acquire() as conn:
+                urow = await conn.fetchrow("SELECT username, display_name, avatar_url FROM users WHERE id=$1", uuid.UUID(user_id))
+                await conn.execute(
+                    """INSERT INTO group_messages (id, group_id, sender_id, content, msg_type, media_url)
+                       VALUES ($1,$2,$3,$4,$5,$6)""",
+                    mid, gid, uuid.UUID(user_id), content, msg_type, media_url
+                )
+            payload = {
+                "id": str(mid), "content": content, "msg_type": msg_type, "media_url": media_url,
+                "sender": {"id": user_id, "username": urow["username"],
+                           "display_name": urow["display_name"], "avatar_url": urow["avatar_url"]},
+                "created_at": datetime.utcnow().isoformat()
+            }
+            await group_manager.broadcast(key, payload)
+    except WebSocketDisconnect:
+        group_manager.remove(key, user_id)
 
 # ─── Health ────────────────────────────────────────────────
 @app.get("/api/health")
