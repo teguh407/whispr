@@ -25,6 +25,32 @@ object GoogleAuthHelper {
     val isConfigured: Boolean
         get() = !WEB_CLIENT_ID.startsWith("REPLACE_")
 
+    // ── Cool username generator ──
+    private val adjectives = listOf(
+        "driftwood", "silent", "midnight", "blue", "crystal", "shadow", "golden",
+        "silver", "iron", "frost", "ember", "storm", "wild", "dark", "neon",
+        "cosmic", "velvet", "raven", "ghost", "phantom", "mystic", "ancient",
+        "electric", "lunar", "solar", "ocean", "forest", "desert", "arctic",
+        "zenith", "nova", "echo", "pulse", "vibe", "haze", "glow", "spark",
+        "blaze", "frost", "dusk", "dawn", "twilight", "eclipse", "comet"
+    )
+    private val nouns = listOf(
+        "fox", "wolf", "hawk", "crow", "owl", "lynx", "bison", "tiger",
+        "panther", "raven", "serpent", "dragon", "phoenix", "stallion",
+        "whisper", "bloom", "dreamer", "wanderer", "seeker", "nomad",
+        "rebel", "sage", "oracle", "cipher", "flux", "wave", "storm",
+        "breeze", "frost", "ember", "spark", "blaze", "shard", "drift",
+        "echo", "pulse", "vibe", "haze", "glow", "mind", "soul",
+        "shadow", "ghost", "phantom", "spirit"
+    )
+
+    fun generateUsername(): String {
+        val adj = adjectives.random()
+        val noun = nouns.random()
+        val num = (100..999).random()
+        return "$adj$noun$num"
+    }
+
     sealed class Result {
         data class Success(val idToken: String, val displayName: String?) : Result()
         data class Error(val message: String) : Result()

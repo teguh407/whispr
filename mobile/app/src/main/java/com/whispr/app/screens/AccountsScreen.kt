@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.sp
 import com.whispr.app.ui.theme.*
+import com.whispr.app.util.GoogleAuthHelper
 import com.whispr.app.viewmodel.WhisprViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,7 +66,11 @@ fun AccountsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showDialog = true }, containerColor = PrimaryPurple) {
+            FloatingActionButton(onClick = {
+                newUsername = GoogleAuthHelper.generateUsername()
+                newDisplayName = newUsername.replace(Regex("\d+$"), "").replaceFirstChar { it.uppercase() }
+                showDialog = true
+            }, containerColor = PrimaryPurple) {
                 Icon(Icons.Default.Add, "Add Account", tint = Color.White)
             }
         },
@@ -138,16 +143,24 @@ fun AccountsScreen(
             title = { Text("New Account", color = TextPrimary) },
             text = {
                 Column {
-                    OutlinedTextField(
-                        value = newUsername, onValueChange = { newUsername = it },
-                        label = { Text("Username") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = newUsername, onValueChange = { newUsername = it },
+                            label = { Text("Username") }, singleLine = true,
+                            modifier = Modifier.weight(1f),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
                             unfocusedContainerColor = CardBg, focusedContainerColor = Color.Transparent,
                             focusedBorderColor = PrimaryPurple, unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f)
                         )
                     )
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(onClick = {
+                        newUsername = GoogleAuthHelper.generateUsername()
+                    }) {
+                        Icon(Icons.Default.Refresh, "Suggest", tint = PrimaryPurple)
+                    }
+                    }
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = newDisplayName, onValueChange = { newDisplayName = it },

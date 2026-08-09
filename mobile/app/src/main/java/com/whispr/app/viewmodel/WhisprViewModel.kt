@@ -188,6 +188,15 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun logout() = viewModelScope.launch {
+        // Sign out of Google so account picker shows on next login
+        try {
+            val gso = com.google.android.gms.auth.api.signin.GoogleSignInOptions.Builder(
+                com.google.android.gms.auth.api.signin.GoogleSignInOptions.DEFAULT_SIGN_IN
+            ).requestEmail().build()
+            val client = com.google.android.gms.auth.api.signin.GoogleSignIn.getClient(ctx(), gso)
+            client.signOut()
+        } catch (_: Exception) { /* Google not available */ }
+
         TokenStore.clearToken(ctx())
         ApiClient.setToken(null)
         _currentUser.value = null
