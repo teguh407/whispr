@@ -68,7 +68,7 @@ fun AccountsScreen(
         floatingActionButton = {
             FloatingActionButton(onClick = {
                 newUsername = GoogleAuthHelper.generateUsername()
-                newDisplayName = newUsername.replace(Regex("\d+$"), "").replaceFirstChar { it.uppercase() }
+                newDisplayName = newUsername.replace(Regex("\\d+$"), "").replaceFirstChar { it.uppercase() }
                 showDialog = true
             }, containerColor = PrimaryPurple) {
                 Icon(Icons.Default.Add, "Add Account", tint = Color.White)
