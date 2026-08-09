@@ -28,6 +28,8 @@ fun BlocksScreen(
     onBack: () -> Unit
 ) {
     val blocks by viewModel.blocks.collectAsState()
+    val loading by viewModel.loading.collectAsState()
+    var unblockTarget by remember { mutableStateOf<Pair<String, String?>?>(null) }
 
     LaunchedEffect(Unit) { viewModel.loadBlocks() }
 
@@ -49,7 +51,11 @@ fun BlocksScreen(
         },
         containerColor = Background
     ) { padding ->
-        if (blocks.isEmpty()) {
+        if (loading && blocks.isEmpty()) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = TextSecondary)
+            }
+        } else if (blocks.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.Block, null, tint = TextSecondary, modifier = Modifier.size(64.dp))
@@ -87,13 +93,36 @@ fun BlocksScreen(
                                 Text(blocked.user?.displayName ?: "User", color = TextPrimary, fontWeight = FontWeight.SemiBold)
                                 Text("@${blocked.user?.username}", color = TextSecondary, fontSize = 12.sp)
                             }
-                            TextButton(onClick = { viewModel.unblockUser(blocked.id) }) {
+                            TextButton(onClick = { unblockTarget = blocked.id to (blocked.user?.displayName) }) {
                                 Text("Unblock", color = PrimaryPurple)
                             }
-                        }
                     }
                 }
             }
+        }
+
+        // Unblock confirmation dialog
+        unblockTarget?.let { (userId, displayName) ->
+            AlertDialog(
+                onDismissRequest = { unblockTarget = null },
+                containerColor = Surface,
+                title = { Text("Unblock user?", color = TextPrimary, fontWeight = FontWeight.Bold) },
+                text = {
+                    Text(
+                        "Are you sure you want to unblock ${displayName ?: "this user"}? They will be able to message you again.",
+                        color = TextSecondary, fontSize = 14.sp
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.unblockUser(userId)
+                        unblockTarget = null
+                    }) { Text("Unblock", color = PrimaryPurple) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { unblockTarget = null }) { Text("Cancel", color = TextSecondary) }
+                }
+            )
         }
     }
 }

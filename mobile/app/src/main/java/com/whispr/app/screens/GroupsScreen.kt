@@ -246,7 +246,7 @@ private fun GroupCard(
             }
 
             Spacer(Modifier.height(10.dp))
-            Divider(color = ChipBg, thickness = 1.dp)
+            HorizontalDivider(color = ChipBg, thickness = 1.dp)
             Spacer(Modifier.height(8.dp))
 
             Row(

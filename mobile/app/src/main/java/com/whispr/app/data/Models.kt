@@ -78,7 +78,7 @@ data class Post(
 data class CreatePostRequest(
     val content: String,
     val tags: List<String> = emptyList(),
-    @SerializedName("once_view") val onceView: Boolean = false,
+    @SerializedName("is_once_view") val onceView: Boolean = false,
     @SerializedName("bg_type") val bgType: String = "none",
     @SerializedName("bg_value") val bgValue: String? = null,
     @SerializedName("post_type") val postType: String = "anonymous",

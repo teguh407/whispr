@@ -43,7 +43,7 @@ interface ApiService {
     @POST("api/posts/{id}/upvote")
     suspend fun upvotePost(@Path("id") id: String): Response<Unit>
 
-    @GET("api/posts/{id}/view-once")
+    @POST("api/posts/{id}/view-once")
     suspend fun viewOncePost(@Path("id") id: String): Response<Post>
 
     // Upload
@@ -73,7 +73,7 @@ interface ApiService {
     suspend fun getMessages(@Path("id") chatId: String): Response<List<ChatMessage>>
 
     @PATCH("api/messages/{id}/ttl")
-    suspend fun setMessageTtl(@Path("id") messageId: String, @Query("ttl") ttl: Int): Response<Unit>
+    suspend fun setMessageTtl(@Path("id") messageId: String, @Body body: Map<String, Int>): Response<Unit>
 
     @GET("api/messages/expired")
     suspend fun getExpiredMessages(): Response<List<ChatMessage>>

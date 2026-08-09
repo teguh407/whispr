@@ -30,6 +30,7 @@ fun LinksScreen(
     onBack: () -> Unit
 ) {
     val links by viewModel.links.collectAsState()
+    val loading by viewModel.loading.collectAsState()
     var newUrl by remember { mutableStateOf("") }
     val context = LocalContext.current
 
@@ -91,9 +92,25 @@ fun LinksScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(links) { link ->
-                    LinkItem(link = link, context = context)
+            if (loading && links.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = PrimaryPurple)
+                }
+            } else if (links.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Link, null, tint = TextSecondary, modifier = Modifier.size(56.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("No links yet", color = TextSecondary, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text("Create a shareable link to get started", color = TextTertiary, fontSize = 13.sp)
+                    }
+                }
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(links) { link ->
+                        LinkItem(link = link, context = context)
+                    }
                 }
             }
         }

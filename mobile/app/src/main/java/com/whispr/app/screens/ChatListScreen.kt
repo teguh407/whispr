@@ -14,11 +14,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import com.whispr.app.data.Chat
 import com.whispr.app.ui.components.PersonaAvatar
 import com.whispr.app.ui.components.WhisprBottomBar
@@ -35,7 +41,33 @@ fun ChatListScreen(
     onNavigate: (String) -> Unit = {}
 ) {
     val chats by viewModel.chats.collectAsState()
+    val loading by viewModel.loading.collectAsState()
     var query by remember { mutableStateOf("") }
+    var isRefreshing by remember { mutableStateOf(false) }
+    var pullOffset by remember { mutableStateOf(0f) }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (available.y > 0 && !isRefreshing) {
+                    pullOffset = (pullOffset + available.y * 0.3f).coerceAtMost(150f)
+                    if (pullOffset > 100f) {
+                        isRefreshing = true
+                    }
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing) {
+            viewModel.loadChats()
+            delay(800)
+            isRefreshing = false
+            pullOffset = 0f
+        }
+    }
 
     LaunchedEffect(Unit) { viewModel.loadChats() }
 
@@ -45,7 +77,13 @@ fun ChatListScreen(
             WhisprBottomBar(current = "chats", onNavigate = onNavigate, onCreate = onCreateChat)
         }
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .nestedScroll(nestedScrollConnection)
+        ) {
+        Column(Modifier.fillMaxSize()) {
             // Title
             Text(
                 "Chats",
@@ -85,16 +123,22 @@ fun ChatListScreen(
             }
 
             if (filtered.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Outlined.ChatBubbleOutline, null, tint = TextTertiary,
-                            modifier = Modifier.size(56.dp))
-                        Spacer(Modifier.height(12.dp))
-                        Text("No conversations yet", color = TextSecondary,
-                            fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                        Spacer(Modifier.height(4.dp))
-                        Text("Start a new chat and make someone's day!",
-                            color = TextTertiary, fontSize = 13.sp)
+                if (loading && !isRefreshing) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = VioletBright)
+                    }
+                } else {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Outlined.ChatBubbleOutline, null, tint = TextTertiary,
+                                modifier = Modifier.size(56.dp))
+                            Spacer(Modifier.height(12.dp))
+                            Text("No conversations yet", color = TextSecondary,
+                                fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                            Spacer(Modifier.height(4.dp))
+                            Text("Start a new chat and make someone's day!",
+                                color = TextTertiary, fontSize = 13.sp)
+                        }
                     }
                 }
             } else {
@@ -105,6 +149,20 @@ fun ChatListScreen(
                 }
             }
         }
+
+        // Pull-to-refresh indicator
+        if (isRefreshing || pullOffset > 10f) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp)
+                    .size(24.dp)
+                    .alpha(if (isRefreshing) 1f else (pullOffset / 100f).coerceIn(0f, 1f)),
+                color = VioletBright,
+                strokeWidth = 2.dp
+            )
+        }
+        } // end Box
     }
 }
 

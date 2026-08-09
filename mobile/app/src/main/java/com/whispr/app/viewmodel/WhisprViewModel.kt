@@ -303,7 +303,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setMessageTtl(messageId: String, ttlSeconds: Int) = viewModelScope.launch {
         try {
-            ApiClient.api.setMessageTtl(messageId, ttlSeconds)
+            ApiClient.api.setMessageTtl(messageId, mapOf("ttl_seconds" to ttlSeconds))
             _error.value = "Auto-destruct set: ${ttlSeconds}s"
         } catch (e: Exception) { err(e) }
     }
@@ -526,6 +526,10 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
             val resp = ApiClient.api.getGroupMessages(groupId)
             if (resp.isSuccessful) _groupMessages.value = resp.body() ?: emptyList()
         } catch (e: Exception) { err(e) }
+    }
+
+    fun addGroupMessage(message: GroupMessage) {
+        _groupMessages.value = _groupMessages.value + message
     }
 
     // Games — match actual backend API (modes → prompt → answer)

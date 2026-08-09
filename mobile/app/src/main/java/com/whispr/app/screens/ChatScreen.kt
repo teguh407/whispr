@@ -208,7 +208,7 @@ fun ChatScreen(
                         Column {
                             Text(peerName, fontWeight = FontWeight.Bold, fontSize = 16.sp,
                                 color = TextPrimary)
-                            Text("Active now", fontSize = 11.sp, color = OnlineGreen)
+                            Text("Online", fontSize = 11.sp, color = OnlineGreen)
                         }
                     }
                 },
@@ -282,7 +282,7 @@ fun ChatScreen(
                                 photoPicker.launch("image/*")
                             }
                         )
-                        Divider()
+                        HorizontalDivider()
                         DropdownMenuItem(
                             text = { Text("Document") },
                             leadingIcon = {

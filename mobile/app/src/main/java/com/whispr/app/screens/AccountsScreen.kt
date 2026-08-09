@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.sp
 import com.whispr.app.ui.theme.*
 import com.whispr.app.viewmodel.WhisprViewModel
@@ -34,6 +35,7 @@ fun AccountsScreen(
     var newUsername by remember { mutableStateOf("") }
     var newDisplayName by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
+    var accountError by remember { mutableStateOf<String?>(null) }
     val currentUserId = viewModel.currentUser.collectAsState().value?.id
     var switchedToId by remember { mutableStateOf<String?>(null) }
 
@@ -130,58 +132,71 @@ fun AccountsScreen(
         }
 
         // Create Account Dialog
-        if (showDialog) {
-            AlertDialog(
-                onDismissRequest = { showDialog = false },
-                containerColor = Surface,
-                title = { Text("New Account", color = TextPrimary) },
-                text = {
-                    Column {
-                        OutlinedTextField(
-                            value = newUsername, onValueChange = { newUsername = it },
-                            label = { Text("Username") }, singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                                unfocusedContainerColor = CardBg, focusedContainerColor = Color.Transparent,
-                                focusedBorderColor = PrimaryPurple, unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f)
-                            )
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false; accountError = null },
+            containerColor = Surface,
+            title = { Text("New Account", color = TextPrimary) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = newUsername, onValueChange = { newUsername = it },
+                        label = { Text("Username") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
+                            unfocusedContainerColor = CardBg, focusedContainerColor = Color.Transparent,
+                            focusedBorderColor = PrimaryPurple, unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f)
                         )
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = newDisplayName, onValueChange = { newDisplayName = it },
+                        label = { Text("Display Name") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
+                            unfocusedContainerColor = CardBg, focusedContainerColor = Color.Transparent,
+                            focusedBorderColor = PrimaryPurple, unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f)
+                        )
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = newPassword, onValueChange = { newPassword = it },
+                        label = { Text("Password") }, singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
+                            unfocusedContainerColor = CardBg, focusedContainerColor = Color.Transparent,
+                            focusedBorderColor = PrimaryPurple, unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f)
+                        )
+                    )
+                    if (accountError != null) {
                         Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = newDisplayName, onValueChange = { newDisplayName = it },
-                            label = { Text("Display Name") }, singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                                unfocusedContainerColor = CardBg, focusedContainerColor = Color.Transparent,
-                                focusedBorderColor = PrimaryPurple, unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f)
-                            )
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = newPassword, onValueChange = { newPassword = it },
-                            label = { Text("Password") }, singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                                unfocusedContainerColor = CardBg, focusedContainerColor = Color.Transparent,
-                                focusedBorderColor = PrimaryPurple, unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f)
-                            )
-                        )
+                        Text(accountError!!, color = ErrorRed, fontSize = 12.sp)
                     }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        viewModel.createAccount(newUsername, newPassword, newDisplayName)
-                        showDialog = false
-                        newUsername = ""; newDisplayName = ""; newPassword = ""
-                    }) { Text("Create", color = PrimaryPurple) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDialog = false }) { Text("Cancel", color = TextSecondary) }
                 }
-            )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    when {
+                        newUsername.isBlank() -> accountError = "Username is required"
+                        newPassword.isBlank() -> accountError = "Password is required"
+                        newDisplayName.isBlank() -> accountError = "Display name is required"
+                        else -> {
+                            viewModel.createAccount(newUsername, newPassword, newDisplayName)
+                            showDialog = false
+                            accountError = null
+                            newUsername = ""; newDisplayName = ""; newPassword = ""
+                        }
+                    }
+                }) { Text("Create", color = PrimaryPurple) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false; accountError = null }) { Text("Cancel", color = TextSecondary) }
+            }
+        )
         }
     }
 }

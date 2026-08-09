@@ -15,13 +15,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.gson.Gson
 import com.whispr.app.data.GroupMessage
+import com.whispr.app.network.ApiClient
+import com.whispr.app.network.TokenStore
 import com.whispr.app.ui.components.PersonaAvatar
 import com.whispr.app.ui.theme.*
 import com.whispr.app.viewmodel.WhisprViewModel
+import okhttp3.Request
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -39,8 +46,44 @@ fun GroupChatScreen(
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    var ws by remember { mutableStateOf<WebSocket?>(null) }
 
-    LaunchedEffect(groupId) { viewModel.loadGroupMessages(groupId) }
+    LaunchedEffect(groupId) {
+        viewModel.loadGroupMessages(groupId)
+        // Connect WebSocket for group chat
+        val token = TokenStore.getToken(context)
+        if (token != null) {
+            val wsUrl = ApiClient.getWsUrl("/ws/group/$groupId/$token")
+            val client = ApiClient.okHttpClient
+            val request = Request.Builder().url(wsUrl).build()
+            ws = client.newWebSocket(request, object : WebSocketListener() {
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    try {
+                        val msg = Gson().fromJson(text, Map::class.java)
+                        val senderId = msg["sender_id"] as? String ?: ""
+                        val content = msg["content"] as? String ?: ""
+                        val senderName = msg["sender_name"] as? String ?: ""
+                        val createdAt = msg["created_at"] as? String
+                        if (senderId != currentUser?.id) {
+                            viewModel.addGroupMessage(
+                                GroupMessage(
+                                    senderId = senderId,
+                                    senderName = senderName,
+                                    content = content,
+                                    createdAt = createdAt
+                                )
+                            )
+                        }
+                    } catch (_: Exception) {}
+                }
+            })
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { ws?.close(1000, "bye"); ws = null }
+    }
 
     LaunchedEffect(error) {
         error?.let {
@@ -139,8 +182,20 @@ fun GroupChatScreen(
                 Spacer(Modifier.width(8.dp))
                 IconButton(
                     onClick = {
-                        // Send not implemented in backend yet
-                        inputText = ""
+                        val text = inputText.trim()
+                        if (text.isNotBlank()) {
+                            val json = Gson().toJson(mapOf("content" to text, "type" to "text"))
+                            ws?.send(json)
+                            viewModel.addGroupMessage(
+                                GroupMessage(
+                                    senderId = currentUser?.id ?: "",
+                                    senderName = currentUser?.displayName ?: currentUser?.username ?: "You",
+                                    content = text,
+                                    createdAt = java.time.OffsetDateTime.now().toString()
+                                )
+                            )
+                            inputText = ""
+                        }
                     },
                     enabled = inputText.isNotBlank(),
                     modifier = Modifier

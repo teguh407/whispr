@@ -1,5 +1,6 @@
 package com.whispr.app.screens
 
+import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,10 +22,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import kotlinx.coroutines.delay
 import com.whispr.app.data.Post
 import com.whispr.app.data.Story
 import com.whispr.app.data.TrendingTag
@@ -52,6 +61,35 @@ fun FeedScreen(
     var selectedTab by remember { mutableStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
     var reportTargetId by remember { mutableStateOf<String?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    var pullOffset by remember { mutableStateOf(0f) }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (available.y > 0 && !isRefreshing) {
+                    pullOffset = (pullOffset + available.y * 0.3f).coerceAtMost(150f)
+                    if (pullOffset > 100f) {
+                        isRefreshing = true
+                    }
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing) {
+            viewModel.loadPosts(tab = when (selectedTab) {
+                0 -> "hot"; 1 -> "global"; 2 -> "local"; 3 -> "confessions"; else -> null
+            })
+            viewModel.loadStories()
+            viewModel.loadTrending()
+            delay(800)
+            isRefreshing = false
+            pullOffset = 0f
+        }
+    }
 
     LaunchedEffect(Unit) { viewModel.loadPosts(tab = "hot") }
     LaunchedEffect(Unit) { viewModel.loadStories() }
@@ -88,10 +126,14 @@ fun FeedScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .nestedScroll(nestedScrollConnection)
+        ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             // Header
@@ -209,6 +251,20 @@ fun FeedScreen(
                 }
             }
         }
+
+        // Pull-to-refresh indicator
+        if (isRefreshing || pullOffset > 10f) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp)
+                    .size(24.dp)
+                    .alpha(if (isRefreshing) 1f else (pullOffset / 100f).coerceIn(0f, 1f)),
+                color = VioletBright,
+                strokeWidth = 2.dp
+            )
+        }
+        } // end Box
 
         // Report post dialog
         reportTargetId?.let { id ->
@@ -367,6 +423,7 @@ fun PostCard(
     var showEdit by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var reportMenuOpen by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Surface(
         color = CardBg,
@@ -509,7 +566,7 @@ fun PostCard(
             }
 
             Spacer(Modifier.height(12.dp))
-            Divider(color = ChipBg, thickness = 1.dp)
+            HorizontalDivider(color = ChipBg, thickness = 1.dp)
             Spacer(Modifier.height(6.dp))
 
             // Actions
@@ -531,7 +588,15 @@ fun PostCard(
                     onClick = onUpvote
                 )
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = onClick, modifier = Modifier.size(28.dp)) {
+                IconButton(onClick = {
+                    val shareText = post.content.ifBlank { "Check out this whisper on Whispr!" }
+                    val sendIntent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        putExtra(Intent.EXTRA_TEXT, shareText)
+                        type = "text/plain"
+                    }
+                    context.startActivity(Intent.createChooser(sendIntent, "Share via"))
+                }, modifier = Modifier.size(28.dp)) {
                     Icon(Icons.Outlined.Share, "Share", tint = TextTertiary,
                         modifier = Modifier.size(18.dp))
                 }

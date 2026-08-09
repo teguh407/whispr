@@ -44,6 +44,7 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
+    var emailError by remember { mutableStateOf<String?>(null) }
     val isLoading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
@@ -104,9 +105,10 @@ fun LoginScreen(
         // Email
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = { email = it; emailError = null },
             label = { Text("Email") },
             leadingIcon = { Icon(Icons.Default.Person, null) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
@@ -119,6 +121,9 @@ fun LoginScreen(
             ),
             singleLine = true
         )
+        if (emailError != null) {
+            Text(emailError!!, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
+        }
         Spacer(Modifier.height(12.dp))
 
         // Password
@@ -150,15 +155,21 @@ fun LoginScreen(
             singleLine = true
         )
         Spacer(Modifier.height(24.dp))
-
-        // Login Button
         Button(
-            onClick = { viewModel.login(email, password) },
+            onClick = {
+                val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".toRegex()
+                if (!email.matches(emailRegex)) {
+                    emailError = "Please enter a valid email address"
+                } else {
+                    emailError = null
+                    viewModel.login(email, password)
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(12.dp),
-            enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
+            enabled = !isLoading && email.isNotBlank() && password.isNotBlank() && emailError == null,
             colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
         ) {
             if (isLoading) {
@@ -174,9 +185,9 @@ fun LoginScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
+            HorizontalDivider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
             Text("  or  ", color = TextSecondary, fontSize = 12.sp)
-            Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
+            HorizontalDivider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
         }
         Spacer(Modifier.height(16.dp))
 

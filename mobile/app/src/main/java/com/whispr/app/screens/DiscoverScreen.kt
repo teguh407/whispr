@@ -13,12 +13,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import com.whispr.app.data.DiscoverUser
 import com.whispr.app.ui.components.PersonaAvatar
 import com.whispr.app.ui.components.TagChip
@@ -53,6 +59,45 @@ private val interestOptions = listOf(
 private const val AGE_MIN = 18f
 private const val AGE_MAX = 80f
 
+// Simple city-to-coords lookup for major Indonesian cities
+private val cityCoords = mapOf(
+    "jakarta" to Pair(-6.2088, 106.8456),
+    "surabaya" to Pair(-7.2575, 112.7521),
+    "bandung" to Pair(-6.9175, 107.6191),
+    "medan" to Pair(3.5952, 98.6722),
+    "semarang" to Pair(-6.9666, 110.4196),
+    "makassar" to Pair(-5.1477, 119.4327),
+    "palembang" to Pair(-2.9761, 104.7754),
+    "tangerang" to Pair(-6.1781, 106.6319),
+    "depok" to Pair(-6.4025, 106.8186),
+    "bekasi" to Pair(-6.2349, 106.9896),
+    "yogyakarta" to Pair(-7.7956, 110.3695),
+    "malang" to Pair(-7.9666, 112.6326),
+    "solo" to Pair(-7.5755, 110.8243),
+    "denpasar" to Pair(-8.6500, 115.2167),
+    "balikpapan" to Pair(-1.2654, 116.8311),
+    "manado" to Pair(1.4748, 124.8421),
+    "pekanbaru" to Pair(0.5071, 101.4478),
+    "lampung" to Pair(-5.3971, 105.2668),
+    "banjarmasin" to Pair(-3.3186, 114.5944),
+    "jayapura" to Pair(-2.5916, 140.6690),
+    "mataram" to Pair(-8.5833, 116.1167),
+    "batam" to Pair(1.0456, 104.0305),
+    "bogor" to Pair(-6.5971, 106.8060),
+    "cirebon" to Pair(-6.7320, 108.5523),
+    "kediri" to Pair(-7.8167, 112.0167),
+    "tasikmalaya" to Pair(-7.3467, 108.2067),
+    "serang" to Pair(-6.1103, 106.1503),
+    "pontianak" to Pair(-0.0263, 109.3425),
+    "ambon" to Pair(-3.6954, 128.1814),
+    "ternate" to Pair(0.7907, 127.3840)
+)
+
+private fun cityToCoords(cityName: String): Pair<Double, Double> {
+    val key = cityName.trim().lowercase()
+    return cityCoords[key] ?: cityCoords["jakarta"]!!
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverScreen(
@@ -65,6 +110,31 @@ fun DiscoverScreen(
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var isRefreshing by remember { mutableStateOf(false) }
+    var pullOffset by remember { mutableStateOf(0f) }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (available.y > 0 && !isRefreshing) {
+                    pullOffset = (pullOffset + available.y * 0.3f).coerceAtMost(150f)
+                    if (pullOffset > 100f) {
+                        isRefreshing = true
+                    }
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing) {
+            applyFilters()
+            delay(800)
+            isRefreshing = false
+            pullOffset = 0f
+        }
+    }
 
     // Filter state
     var selectedRadius by remember { mutableStateOf(radiusOptions.last()) }   // Anywhere
@@ -130,10 +200,14 @@ fun DiscoverScreen(
             WhisprBottomBar(current = "explore", onNavigate = onNavigate, onCreate = onCreate)
         }
     ) { padding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .nestedScroll(nestedScrollConnection)
+        ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             // ── Header ──
@@ -282,7 +356,7 @@ fun DiscoverScreen(
 
             // ── Results header ──
             item {
-                Divider(color = ChipBg, thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
+                HorizontalDivider(color = ChipBg, thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -324,6 +398,20 @@ fun DiscoverScreen(
             }
         }
 
+        // Pull-to-refresh indicator
+        if (isRefreshing || pullOffset > 10f) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp)
+                    .size(24.dp)
+                    .alpha(if (isRefreshing) 1f else (pullOffset / 100f).coerceIn(0f, 1f)),
+                color = VioletBright,
+                strokeWidth = 2.dp
+            )
+        }
+        } // end Box
+
         // ── Set Location dialog ──
         if (showLocationDialog) {
             AlertDialog(
@@ -356,7 +444,8 @@ fun DiscoverScreen(
                 confirmButton = {
                     TextButton(onClick = {
                         val city = cityInput.trim().ifBlank { null }
-                        viewModel.updateLocation(-6.2088, 106.8456, city)
+                        val coords = cityToCoords(city ?: "Jakarta")
+                        viewModel.updateLocation(coords.first, coords.second, city)
                         currentCity = city ?: "Jakarta"
                         showLocationDialog = false
                         cityInput = ""

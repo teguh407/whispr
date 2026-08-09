@@ -17,10 +17,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.whispr.app.data.KarmaLogEntry
+import com.whispr.app.network.ApiClient
 import com.whispr.app.ui.theme.*
 import com.whispr.app.viewmodel.WhisprViewModel
 import java.text.SimpleDateFormat
@@ -105,8 +108,18 @@ fun ProfileScreen(
                     .background(Brush.linearGradient(listOf(GradientStart, GradientEnd))),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Person, null, tint = Color.White,
-                    modifier = Modifier.size(48.dp))
+                val avatarUrl = user?.avatarUrl
+                if (!avatarUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = ApiClient.buildMediaUrl(avatarUrl),
+                        contentDescription = "Avatar",
+                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(Icons.Default.Person, null, tint = Color.White,
+                        modifier = Modifier.size(48.dp))
+                }
             }
             Spacer(Modifier.height(12.dp))
 
@@ -193,7 +206,7 @@ fun ProfileScreen(
                             karmaLog.forEachIndexed { index, entry ->
                                 KarmaLogRow(entry)
                                 if (index < karmaLog.lastIndex) {
-                                    Divider(color = Background, thickness = 1.dp)
+                                    HorizontalDivider(color = Background, thickness = 1.dp)
                                 }
                             }
                         }
@@ -209,18 +222,20 @@ fun ProfileScreen(
                     Column {
                         ToggleRow("Show me in Nearby", Icons.Default.LocationOn, showInNearby) {
                             showInNearby = it
+                            viewModel.updateProfile(displayName = user?.displayName, bio = user?.bio)
                         }
-                        Divider(color = Background, thickness = 1.dp)
+                        HorizontalDivider(color = Background, thickness = 1.dp)
                         ToggleRow("Read Receipts", Icons.Default.DoneAll, readReceipts) {
                             readReceipts = it
+                            viewModel.updateProfile(displayName = user?.displayName, bio = user?.bio)
                         }
-                        Divider(color = Background, thickness = 1.dp)
+                        HorizontalDivider(color = Background, thickness = 1.dp)
                         NavRow("My Chats", Icons.Default.Chat, onChats)
-                        Divider(color = Background, thickness = 1.dp)
+                        HorizontalDivider(color = Background, thickness = 1.dp)
                         NavRow("Switch Account", Icons.Default.SwitchAccount, onSwitchAccount)
-                        Divider(color = Background, thickness = 1.dp)
+                        HorizontalDivider(color = Background, thickness = 1.dp)
                         NavRow("Block List", Icons.Default.Block, onBlocks)
-                        Divider(color = Background, thickness = 1.dp)
+                        HorizontalDivider(color = Background, thickness = 1.dp)
                         NavRow("App Settings", Icons.Default.Settings, onSettings)
                     }
                 }

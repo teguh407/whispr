@@ -30,6 +30,7 @@ fun GifPickerScreen(
     onGifSelected: (String) -> Unit
 ) {
     val gifs by viewModel.gifs.collectAsState()
+    val loading by viewModel.loading.collectAsState()
     var query by remember { mutableStateOf("") }
 
     Scaffold(
@@ -80,27 +81,44 @@ fun GifPickerScreen(
 
             Spacer(Modifier.height(8.dp))
 
-            // GIF grid
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(gifs) { gif ->
-                    Card(
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .height(160.dp)
-                            .clickable { onGifSelected(gif.url) },
-                        colors = CardDefaults.cardColors(containerColor = CardBg)
-                    ) {
-                        AsyncImage(
-                            model = gif.thumbnail ?: gif.url,
-                            contentDescription = gif.title,
-                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
-                            contentScale = ContentScale.Crop
-                        )
+            // Loading / empty / grid
+            if (loading && gifs.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = PrimaryPurple)
+                }
+            } else if (gifs.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.GifBox, null, tint = TextSecondary, modifier = Modifier.size(56.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("No GIFs found", color = TextSecondary, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text("Try a different search term", color = TextTertiary, fontSize = 13.sp)
+                    }
+                }
+            } else {
+                // GIF grid
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    contentPadding = PaddingValues(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(gifs) { gif ->
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .height(160.dp)
+                                .clickable { onGifSelected(gif.url) },
+                            colors = CardDefaults.cardColors(containerColor = CardBg)
+                        ) {
+                            AsyncImage(
+                                model = gif.thumbnail ?: gif.url,
+                                contentDescription = gif.title,
+                                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
                     }
                 }
             }

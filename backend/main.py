@@ -617,7 +617,22 @@ async def update_profile(req: UpdateProfileReq, user=Depends(get_current_user)):
             req.display_name, req.bio, req.avatar_url,
             interests, req.city, req.gender, req.age, user["id"]
         )
-    return {"ok": True}
+        # Fetch the updated user for Response<User>
+        updated = await conn.fetchrow("SELECT * FROM users WHERE id = $1", user["id"])
+    return {
+        "id": str(updated["id"]),
+        "username": updated["username"],
+        "display_name": updated["display_name"],
+        "avatar_url": updated["avatar_url"],
+        "bio": updated["bio"],
+        "karma": updated["karma"],
+        "days_active": updated["days_active"],
+        "created_at": updated["created_at"].isoformat(),
+        "interests": list(updated["interests"]) if updated.get("interests") else [],
+        "city": updated.get("city"),
+        "gender": updated.get("gender"),
+        "age": updated.get("age"),
+    }
 
 # ─── Posts (Feature 4: Edit/Delete) ────────────────────────
 class CreatePostReq(BaseModel):
@@ -653,7 +668,41 @@ async def create_post(req: CreatePostReq, user=Depends(get_current_user)):
                 )
         # Update karma (+1 post created, logged)
         await award_karma(conn, user["id"], "post_created", post_id)
-    return {"id": str(post_id), "ok": True}
+        # Fetch the created post with all fields for Response<Post>
+        row = await conn.fetchrow(
+            """SELECT p.*, u.username, u.display_name, u.avatar_url, u.city,
+                  (SELECT COUNT(*) FROM upvotes WHERE post_id = p.id) as vote_count
+               FROM posts p
+               JOIN users u ON p.author_id = u.id
+               WHERE p.id = $1""",
+            post_id
+        )
+        tags = await conn.fetch(
+            "SELECT tag FROM post_tags WHERE post_id = $1", post_id
+        )
+    return {
+        "id": str(row["id"]),
+        "content": row["content"],
+        "media_url": row["media_url"],
+        "media_type": row["media_type"],
+        "is_once_view": row["is_once_view"],
+        "upvotes": row["vote_count"],
+        "replies_count": row["replies_count"],
+        "is_edited": row["is_edited"],
+        "bg_type": row["bg_type"] if "bg_type" in row else "none",
+        "bg_value": row["bg_value"] if "bg_value" in row else None,
+        "post_type": row["post_type"] if "post_type" in row else "anonymous",
+        "mood": row["mood"] if "mood" in row else None,
+        "author": {
+            "id": str(row["author_id"]),
+            "username": row["username"],
+            "display_name": row["display_name"],
+            "avatar_url": row["avatar_url"],
+            "city": row["city"]
+        },
+        "tags": [r["tag"] for r in tags],
+        "created_at": row["created_at"].isoformat()
+    }
 
 @app.get("/api/posts")
 async def list_posts(
@@ -1058,6 +1107,14 @@ async def list_chats(user=Depends(get_current_user)):
                     "SELECT id, username, display_name, avatar_url FROM users WHERE id = $1",
                     r["other_user_id"]
                 )
+        # Count unread messages: messages from others in this chat
+        unread_count = 0
+        if r["id"]:
+            async with db_pool.acquire() as conn:
+                unread_count = await conn.fetchval(
+                    "SELECT COUNT(*) FROM messages WHERE chat_id = $1 AND sender_id != $2",
+                    r["id"], user["id"]
+                ) or 0
         # Generate a unique anonymous alias per chat so the list isn't all "Anonymous"
         chat_suffix = str(r["id"])[-6:]
         results.append({
@@ -1076,6 +1133,7 @@ async def list_chats(user=Depends(get_current_user)):
             "last_message": r["last_message"],
             "last_msg_type": r["last_msg_type"],
             "last_msg_at": r["last_msg_at"].isoformat() if r["last_msg_at"] else None,
+            "unread_count": unread_count,
             "is_link_chat": r["is_link_chat"],
             "created_at": r["created_at"].isoformat()
         })
@@ -1109,20 +1167,30 @@ async def get_messages(
         
         if before:
             rows = await conn.fetch(
-                """SELECT * FROM messages WHERE chat_id = $1 AND created_at < $2
-                   ORDER BY created_at DESC LIMIT $3""",
+                """SELECT m.*, u.display_name as sender_name, u.avatar_url as sender_avatar
+                   FROM messages m
+                   LEFT JOIN users u ON m.sender_id = u.id
+                   WHERE m.chat_id = $1 AND m.created_at < $2
+                   ORDER BY m.created_at DESC LIMIT $3""",
                 cid, datetime.fromisoformat(before), limit
             )
         else:
             rows = await conn.fetch(
-                """SELECT * FROM messages WHERE chat_id = $1
-                   ORDER BY created_at DESC LIMIT $2""",
+                """SELECT m.*, u.display_name as sender_name, u.avatar_url as sender_avatar
+                   FROM messages m
+                   LEFT JOIN users u ON m.sender_id = u.id
+                   WHERE m.chat_id = $1
+                   ORDER BY m.created_at DESC LIMIT $2""",
                 cid, limit
             )
     
     return [{
         "id": str(r["id"]),
         "sender_id": str(r["sender_id"]) if r["sender_id"] else None,
+        "sender": {
+            "display_name": r["sender_name"],
+            "avatar_url": r["sender_avatar"]
+        } if r["sender_id"] else None,
         "content": r["content"],
         "type": r["msg_type"],
         "media_url": r["media_url"],
