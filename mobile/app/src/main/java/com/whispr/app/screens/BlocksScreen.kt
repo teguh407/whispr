@@ -96,6 +96,7 @@ fun BlocksScreen(
                             TextButton(onClick = { unblockTarget = blocked.id to (blocked.user?.displayName) }) {
                                 Text("Unblock", color = PrimaryPurple)
                             }
+                        }
                     }
                 }
             }
