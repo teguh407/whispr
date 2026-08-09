@@ -36,14 +36,14 @@ fun AccountsScreen(
     var newDisplayName by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var accountError by remember { mutableStateOf<String?>(null) }
-    val currentUserId = viewModel.currentUser.collectAsState().value?.id
-    var switchedToId by remember { mutableStateOf<String?>(null) }
+    val accountSwitchSuccess by viewModel.accountSwitchSuccess.collectAsState()
 
     LaunchedEffect(Unit) { viewModel.loadAccounts() }
 
     // Auto-navigate back after successful switch
-    LaunchedEffect(currentUserId) {
-        if (switchedToId != null && currentUserId == switchedToId) {
+    LaunchedEffect(accountSwitchSuccess) {
+        if (accountSwitchSuccess) {
+            viewModel.clearAccountSwitchSuccess()
             onBack()
         }
     }
@@ -117,7 +117,6 @@ fun AccountsScreen(
                             } else {
                                 TextButton(
                                     onClick = {
-                                        switchedToId = account.id
                                         viewModel.switchAccount(account.id)
                                     },
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)

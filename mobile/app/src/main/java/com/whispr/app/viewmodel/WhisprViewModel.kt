@@ -27,6 +27,9 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn
 
+    private val _accountSwitchSuccess = MutableStateFlow(false)
+    val accountSwitchSuccess: StateFlow<Boolean> = _accountSwitchSuccess
+
     private val _isAuthReady = MutableStateFlow(false)
     val isAuthReady: StateFlow<Boolean> = _isAuthReady
 
@@ -630,13 +633,24 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
                 resp.body()?.let {
                     TokenStore.saveToken(ctx(), it.token)
                     ApiClient.setToken(it.token)
-                    _currentUser.value = it.user ?: ApiClient.api.getMe().body()
+                    // Fetch full user data after token switch
+                    val meResp = ApiClient.api.getMe()
+                    if (meResp.isSuccessful) {
+                        _currentUser.value = meResp.body()
+                    } else {
+                        _currentUser.value = it.user
+                    }
                     _isLoggedIn.value = true
+                    _accountSwitchSuccess.value = true
                 }
             } else {
                 _error.value = "Switch failed: ${resp.code()}"
             }
         } catch (e: Exception) { err(e) }
         _loading.value = false
+    }
+
+    fun clearAccountSwitchSuccess() {
+        _accountSwitchSuccess.value = false
     }
 }
