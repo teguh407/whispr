@@ -206,7 +206,7 @@ fun ProfileScreen(
                             karmaLog.forEachIndexed { index, entry ->
                                 KarmaLogRow(entry)
                                 if (index < karmaLog.lastIndex) {
-                                    HorizontalDivider(color = Background, thickness = 1.dp)
+                                    Divider(color = Background, thickness = 1.dp)
                                 }
                             }
                         }
@@ -224,18 +224,18 @@ fun ProfileScreen(
                             showInNearby = it
                             viewModel.updateProfile(displayName = user?.displayName, bio = user?.bio)
                         }
-                        HorizontalDivider(color = Background, thickness = 1.dp)
+                        Divider(color = Background, thickness = 1.dp)
                         ToggleRow("Read Receipts", Icons.Default.DoneAll, readReceipts) {
                             readReceipts = it
                             viewModel.updateProfile(displayName = user?.displayName, bio = user?.bio)
                         }
-                        HorizontalDivider(color = Background, thickness = 1.dp)
+                        Divider(color = Background, thickness = 1.dp)
                         NavRow("My Chats", Icons.Default.Chat, onChats)
-                        HorizontalDivider(color = Background, thickness = 1.dp)
+                        Divider(color = Background, thickness = 1.dp)
                         NavRow("Switch Account", Icons.Default.SwitchAccount, onSwitchAccount)
-                        HorizontalDivider(color = Background, thickness = 1.dp)
+                        Divider(color = Background, thickness = 1.dp)
                         NavRow("Block List", Icons.Default.Block, onBlocks)
-                        HorizontalDivider(color = Background, thickness = 1.dp)
+                        Divider(color = Background, thickness = 1.dp)
                         NavRow("App Settings", Icons.Default.Settings, onSettings)
                     }
                 }

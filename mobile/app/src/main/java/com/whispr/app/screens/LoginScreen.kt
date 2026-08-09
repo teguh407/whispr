@@ -185,9 +185,9 @@ fun LoginScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            HorizontalDivider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
+            Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
             Text("  or  ", color = TextSecondary, fontSize = 12.sp)
-            HorizontalDivider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
+            Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
         }
         Spacer(Modifier.height(16.dp))
 

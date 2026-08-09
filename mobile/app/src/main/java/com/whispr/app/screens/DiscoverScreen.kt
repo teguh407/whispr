@@ -127,15 +127,6 @@ fun DiscoverScreen(
         }
     }
 
-    LaunchedEffect(isRefreshing) {
-        if (isRefreshing) {
-            applyFilters()
-            delay(800)
-            isRefreshing = false
-            pullOffset = 0f
-        }
-    }
-
     // Filter state
     var selectedRadius by remember { mutableStateOf(radiusOptions.last()) }   // Anywhere
     var selectedInterest by remember { mutableStateOf<String?>(null) }
@@ -160,6 +151,15 @@ fun DiscoverScreen(
             minAge = minAge,
             maxAge = maxAge
         )
+    }
+
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing) {
+            applyFilters()
+            delay(800)
+            isRefreshing = false
+            pullOffset = 0f
+        }
     }
 
     fun resetFilters() {
@@ -356,7 +356,7 @@ fun DiscoverScreen(
 
             // ── Results header ──
             item {
-                HorizontalDivider(color = ChipBg, thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
+                Divider(color = ChipBg, thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,

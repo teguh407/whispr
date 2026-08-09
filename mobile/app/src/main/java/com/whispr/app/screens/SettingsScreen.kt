@@ -110,7 +110,7 @@ fun SettingsScreen(
             )
 
             Spacer(Modifier.height(32.dp))
-            HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
+            Divider(color = TextSecondary.copy(alpha = 0.2f))
             Spacer(Modifier.height(24.dp))
 
             // ── Server ──
@@ -150,7 +150,7 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(32.dp))
-            HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
+            Divider(color = TextSecondary.copy(alpha = 0.2f))
             Spacer(Modifier.height(24.dp))
 
             // ── About ──
@@ -176,7 +176,7 @@ fun SettingsScreen(
             )
 
             Spacer(Modifier.height(32.dp))
-            HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
+            Divider(color = TextSecondary.copy(alpha = 0.2f))
             Spacer(Modifier.height(24.dp))
 
             // ── Danger Zone (Google Play requires in-app account deletion) ──

@@ -282,7 +282,7 @@ fun ChatScreen(
                                 photoPicker.launch("image/*")
                             }
                         )
-                        HorizontalDivider()
+                        Divider()
                         DropdownMenuItem(
                             text = { Text("Document") },
                             leadingIcon = {
