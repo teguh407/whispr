@@ -42,7 +42,8 @@ data class User(
     @SerializedName("created_at") val createdAt: String? = null,
     val age: Int? = null,
     val gender: String? = null,
-    val interests: List<String> = emptyList()
+    val interests: List<String> = emptyList(),
+    val city: String? = null
 )
 
 data class ProfileUpdate(
