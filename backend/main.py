@@ -704,6 +704,16 @@ async def create_post(req: CreatePostReq, user=Depends(get_current_user)):
         "created_at": row["created_at"].isoformat()
     }
 
+def _haversine_km(lat1, lng1, lat2, lng2):
+    """Calculate distance between two points using haversine formula."""
+    import math
+    R = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lng2 - lng1)
+    a = math.sin(dphi/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dlmb/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
 @app.get("/api/posts")
 async def list_posts(
     page: int = Query(1, ge=1),
@@ -765,6 +775,7 @@ async def list_posts(
         "mood": r["mood"] if "mood" in r else None,
         "is_mine": str(r["author_id"]) == str(user["id"]),
         "author": {"id": str(r["author_id"]), "username": r["username"], "display_name": r["display_name"], "avatar_url": r["avatar_url"], "city": r["city"]},
+        "distance_km": round(_haversine_km(user.get("lat") or 0, user.get("lng") or 0, r["lat"] or 0, r["lng"] or 0), 1) if user.get("lat") and user.get("lng") and r["lat"] and r["lng"] else None,
         "created_at": r["created_at"].isoformat()
     } for r in rows]
 
@@ -1596,14 +1607,6 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 # DISCOVERY / MATCHING (Feature: radius, interests, karma, gender/age)
 # ═══════════════════════════════════════════════════════════
 import math
-
-def _haversine_km(lat1, lng1, lat2, lng2):
-    R = 6371.0
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlmb = math.radians(lng2 - lng1)
-    a = math.sin(dphi/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dlmb/2)**2
-    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
 class LocationReq(BaseModel):
     lat: float

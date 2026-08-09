@@ -618,6 +618,13 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // Location
+    suspend fun updateLocationSync(lat: Double, lng: Double, city: String?): Boolean {
+        return try {
+            val resp = ApiClient.api.updateLocation(LocationUpdate(lat, lng, city))
+            resp.isSuccessful
+        } catch (e: Exception) { false }
+    }
+
     fun updateLocation(lat: Double, lng: Double, city: String?) = viewModelScope.launch {
         try {
             ApiClient.api.updateLocation(LocationUpdate(lat, lng, city))

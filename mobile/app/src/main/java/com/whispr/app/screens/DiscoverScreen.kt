@@ -25,6 +25,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.compose.runtime.rememberCoroutineScope
 import com.whispr.app.data.DiscoverUser
 import com.whispr.app.ui.components.PersonaAvatar
 import com.whispr.app.ui.components.TagChip
@@ -136,6 +139,7 @@ fun DiscoverScreen(
     var query by remember { mutableStateOf("") }
 
     // Location setting state
+    val locationScope = rememberCoroutineScope()
     var showLocationDialog by remember { mutableStateOf(false) }
     var cityInput by remember { mutableStateOf("") }
     var currentCity by remember { mutableStateOf<String?>(null) }
@@ -445,11 +449,13 @@ fun DiscoverScreen(
                     TextButton(onClick = {
                         val city = cityInput.trim().ifBlank { null }
                         val coords = cityToCoords(city ?: "Jakarta")
-                        viewModel.updateLocation(coords.first, coords.second, city)
                         currentCity = city ?: "Jakarta"
                         showLocationDialog = false
                         cityInput = ""
-                        applyFilters()
+                        locationScope.launch {
+                            viewModel.updateLocationSync(coords.first, coords.second, city)
+                            applyFilters()
+                        }
                     }) { Text("Set", color = PrimaryPurple, fontWeight = FontWeight.SemiBold) }
                 },
                 dismissButton = {

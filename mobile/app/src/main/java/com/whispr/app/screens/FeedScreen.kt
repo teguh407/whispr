@@ -179,7 +179,7 @@ fun FeedScreen(
                             tint = VioletBright, modifier = Modifier.size(14.dp)
                         )
                         Spacer(Modifier.width(4.dp))
-                        Text("Nearby · 2 km away", fontSize = 12.sp, color = TextTertiary)
+                        Text("Nearby" + (viewModel.currentUser.collectAsState().value?.city?.let { " · $it" } ?: ""), fontSize = 12.sp, color = TextTertiary)
                     }
                 }
             }
@@ -446,7 +446,7 @@ fun PostCard(
                 Column(Modifier.weight(1f)) {
                     Text(authorName, color = TextPrimary,
                         fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Text("· 2 km away", color = TextTertiary, fontSize = 11.sp)
+                    Text(post.distanceKm?.let { "· ${it} km away" } ?: post.author?.city?.let { "· $it" } ?: "", color = TextTertiary, fontSize = 11.sp)
                 }
                 Text(relativeTime(post.createdAt), color = TextTertiary, fontSize = 11.sp)
                 if (post.isMine) {

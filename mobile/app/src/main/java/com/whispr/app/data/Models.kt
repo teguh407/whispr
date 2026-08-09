@@ -67,6 +67,7 @@ data class Post(
     val mood: String? = null,
     @SerializedName("is_mine") val isMine: Boolean = false,
     val author: User? = null,
+    @SerializedName("distance_km") val distanceKm: Double? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     // Legacy compat fields (may be absent)
     @SerializedName("author_id") val authorId: String = "",
