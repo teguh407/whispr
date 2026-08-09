@@ -21,6 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.whispr.app.R
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -82,11 +86,11 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center
     ) {
         // Logo area
-        Icon(
-            Icons.Default.Lock,
+        Image(
+            painter = painterResource(id = R.drawable.whispr_logo),
             contentDescription = "Whispr",
-            tint = PrimaryPurple,
-            modifier = Modifier.size(72.dp)
+            modifier = Modifier.size(120.dp),
+            contentScale = ContentScale.Fit
         )
         Spacer(Modifier.height(16.dp))
         Text(
