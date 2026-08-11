@@ -89,6 +89,9 @@ interface ApiService {
     @PATCH("api/messages/{id}/ttl")
     suspend fun setMessageTtl(@Path("id") messageId: String, @Body body: Map<String, Int>): Response<Unit>
 
+    @POST("api/messages/{id}/view-once")
+    suspend fun viewOnceMessage(@Path("id") messageId: String): Response<Map<String, Any>>
+
     @GET("api/messages/expired")
     suspend fun getExpiredMessages(): Response<List<ChatMessage>>
 

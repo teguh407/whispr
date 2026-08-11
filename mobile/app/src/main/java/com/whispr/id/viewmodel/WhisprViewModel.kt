@@ -376,6 +376,17 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { err(e) }
     }
 
+    /** Mark a once-view message as viewed (persists server-side). */
+    fun markMessageViewed(messageId: String) = viewModelScope.launch {
+        try {
+            ApiClient.api.viewOnceMessage(messageId)
+            // Update local list so it collapses to expired immediately
+            _messages.value = _messages.value.map {
+                if (it.id == messageId) it.copy(isViewed = true) else it
+            }
+        } catch (e: Exception) { /* non-fatal */ }
+    }
+
     // Upload
     fun uploadVoice(file: File, onResult: (UploadResponse?) -> Unit) = viewModelScope.launch {
         try {

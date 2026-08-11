@@ -244,7 +244,9 @@ fun ChatScreen(
             ) {
                 items(messages) { msg ->
                     val isMe = msg.senderId == (currentUser?.id ?: "")
-                    MessageBubble(msg, isMe) { messageId, ttl ->
+                    MessageBubble(msg, isMe, onMarkViewed = { msgId ->
+                        viewModel.markMessageViewed(msgId)
+                    }) { messageId, ttl ->
                         viewModel.setMessageTtl(messageId, ttl)
                     }
                 }
@@ -413,7 +415,12 @@ fun ChatScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MessageBubble(msg: ChatMessage, isMe: Boolean, onSetTtl: (String, Int) -> Unit) {
+fun MessageBubble(
+    msg: ChatMessage,
+    isMe: Boolean,
+    onMarkViewed: (String) -> Unit = {},
+    onSetTtl: (String, Int) -> Unit
+) {
     var showTtlMenu by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -438,7 +445,7 @@ fun MessageBubble(msg: ChatMessage, isMe: Boolean, onSetTtl: (String, Int) -> Un
                 Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                     when (msg.type) {
                         "voice" -> VoiceBubbleContent(msg, isMe)
-                        "photo" -> PhotoBubbleContent(msg, isMe)
+                        "photo" -> PhotoBubbleContent(msg, isMe, onMarkViewed)
                         "document" -> DocumentBubbleContent(msg, isMe)
                         "gif" -> Text("🎬 GIF", color = if (isMe) Color.White else TextPrimary)
                         else -> Text(msg.content,
@@ -499,10 +506,15 @@ fun MessageBubble(msg: ChatMessage, isMe: Boolean, onSetTtl: (String, Int) -> Un
  * into an "Photo expired" placeholder.
  */
 @Composable
-private fun PhotoBubbleContent(msg: ChatMessage, isMe: Boolean) {
+private fun PhotoBubbleContent(
+    msg: ChatMessage,
+    isMe: Boolean,
+    onMarkViewed: (String) -> Unit = {}
+) {
     val fullUrl = ApiClient.buildMediaUrl(msg.mediaUrl)
-    var expired by remember(msg.id) { mutableStateOf(false) }
     var showFullScreen by remember { mutableStateOf(false) }
+    // Server-side once-view: is_viewed persists across chat re-entries
+    val expired = msg.isOnceView && msg.isViewed
 
     // Full-screen photo viewer (once-view = secure, no screenshots)
     if (showFullScreen) {
@@ -511,7 +523,9 @@ private fun PhotoBubbleContent(msg: ChatMessage, isMe: Boolean) {
             secure = msg.isOnceView,
             onDismiss = {
                 showFullScreen = false
-                if (msg.isOnceView) expired = true
+                if (msg.isOnceView && msg.id != null) {
+                    onMarkViewed(msg.id!!)
+                }
             }
         )
     }

@@ -180,6 +180,7 @@ data class ChatMessage(
     @SerializedName("ttl_seconds") val ttlSeconds: Int? = null,
     @SerializedName("expires_at") val expiresAt: String? = null,
     @SerializedName("is_once_view") val isOnceView: Boolean = false,
+    @SerializedName("is_viewed") val isViewed: Boolean = false,
     @SerializedName("filename") val filename: String? = null,
     @SerializedName("file_size") val fileSize: Long? = null
 )
