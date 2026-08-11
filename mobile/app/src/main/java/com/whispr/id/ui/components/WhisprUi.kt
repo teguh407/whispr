@@ -1,6 +1,7 @@
 package com.whispr.id.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,9 +44,14 @@ fun PersonaAvatar(
     name: String,
     size: Int = 44,
     online: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
-    Box(modifier = modifier.size(size.dp)) {
+    val base = modifier.size(size.dp)
+    val finalModifier = if (onClick != null) {
+        base.clip(CircleShape).clickable(onClick = onClick)
+    } else base
+    Box(modifier = finalModifier) {
         Box(
             modifier = Modifier
                 .matchParentSize()

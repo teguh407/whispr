@@ -87,6 +87,45 @@ data class CreatePostRequest(
     val mood: String? = null
 )
 
+// Reply (nested, Twitter-style)
+data class Reply(
+    val id: String = "",
+    @SerializedName("post_id") val postId: String = "",
+    @SerializedName("parent_id") val parentId: String? = null,
+    val content: String = "",
+    val upvotes: Int = 0,
+    @SerializedName("is_mine") val isMine: Boolean = false,
+    val author: User? = null,
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
+data class CreateReplyRequest(
+    val content: String,
+    @SerializedName("parent_id") val parentId: String? = null
+)
+
+// Post detail: location added
+data class PostLocation(
+    val city: String? = null,
+    @SerializedName("distance_km") val distanceKm: Double? = null
+)
+
+// Public profile (avatar click)
+data class PublicProfile(
+    val id: String = "",
+    val username: String = "",
+    @SerializedName("display_name") val displayName: String? = null,
+    val bio: String? = null,
+    @SerializedName("avatar_url") val avatarUrl: String? = null,
+    val karma: Int = 0,
+    val city: String? = null,
+    @SerializedName("days_active") val daysActive: Int = 0,
+    @SerializedName("posts_count") val postsCount: Int = 0,
+    @SerializedName("total_upvotes") val totalUpvotes: Int = 0,
+    @SerializedName("is_self") val isSelf: Boolean = false,
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
 // Poll
 data class PollOption(
     val id: String = "",

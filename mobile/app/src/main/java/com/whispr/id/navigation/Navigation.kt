@@ -52,6 +52,12 @@ sealed class Screen(val route: String) {
     object Games : Screen("games")
     object Match : Screen("match")
     object Stories : Screen("stories")
+    object PostDetail : Screen("post/{postId}") {
+        fun createRoute(postId: String) = "post/$postId"
+    }
+    object ProfileDetail : Screen("profile_detail/{userId}") {
+        fun createRoute(userId: String) = "profile_detail/$userId"
+    }
 }
 
 @Composable
@@ -158,7 +164,12 @@ fun WhisprNavigation(
             FeedScreen(
                 viewModel = viewModel,
                 onCreatePost = { navController.navigate(Screen.CreatePost.route) },
-                onPostClick = { /* Handle once-view */ },
+                onPostClick = { postId ->
+                    navController.navigate(Screen.PostDetail.createRoute(postId))
+                },
+                onAuthorClick = { userId ->
+                    navController.navigate(Screen.ProfileDetail.createRoute(userId))
+                },
                 onNavigate = { route ->
                     when (route) {
                         "feed" -> { /* already here */ }
@@ -347,6 +358,36 @@ fun WhisprNavigation(
                     }
                 },
                 onCreate = { navController.navigate(Screen.CreatePost.route) }
+            )
+        }
+
+        composable(
+            Screen.PostDetail.route,
+            arguments = listOf(navArgument("postId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val postId = backStackEntry.arguments?.getString("postId") ?: return@composable
+            PostDetailScreen(
+                postId = postId,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onAuthorClick = { userId ->
+                    navController.navigate(Screen.ProfileDetail.createRoute(userId))
+                }
+            )
+        }
+
+        composable(
+            Screen.ProfileDetail.route,
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
+            ProfileDetailScreen(
+                userId = userId,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onMessage = { targetId ->
+                    navController.navigate(Screen.Chat.createRoute(targetId))
+                }
             )
         }
 

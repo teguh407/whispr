@@ -50,6 +50,7 @@ fun FeedScreen(
     viewModel: WhisprViewModel,
     onCreatePost: () -> Unit,
     onPostClick: (String) -> Unit,
+    onAuthorClick: (String) -> Unit = {},
     onNavigate: (String) -> Unit
 ) {
     val posts by viewModel.posts.collectAsState()
@@ -243,7 +244,8 @@ fun FeedScreen(
                         onReply = { onPostClick(post.id) },
                         onEdit = { newContent -> viewModel.editPost(post.id, newContent) },
                         onDelete = { viewModel.deletePost(post.id) },
-                        onReport = { reportTargetId = post.id }
+                        onReport = { reportTargetId = post.id },
+                        onAuthorClick = { post.author?.id?.let { onAuthorClick(it) } }
                     )
                 }
             }
@@ -401,7 +403,8 @@ fun PostCard(
     onReply: () -> Unit,
     onEdit: (String) -> Unit = {},
     onDelete: () -> Unit = {},
-    onReport: () -> Unit = {}
+    onReport: () -> Unit = {},
+    onAuthorClick: (() -> Unit)? = null
 ) {
     val authorName = post.author?.displayName ?: post.author?.username ?: "Anonymous"
     val bg = postBackgroundById(if (post.bgType == "gradient") post.bgValue else null)
@@ -438,7 +441,7 @@ fun PostCard(
             Column(Modifier.padding(14.dp)) {
             // Author row
             Row(verticalAlignment = Alignment.CenterVertically) {
-                PersonaAvatar(authorName, size = 40)
+                PersonaAvatar(authorName, size = 40, onClick = onAuthorClick)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(authorName, color = TextPrimary,

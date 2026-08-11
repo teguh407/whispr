@@ -46,6 +46,20 @@ interface ApiService {
     @POST("api/posts/{id}/view-once")
     suspend fun viewOncePost(@Path("id") id: String): Response<Post>
 
+    // Post detail + replies
+    @GET("api/posts/{id}")
+    suspend fun getPostDetail(@Path("id") id: String): Response<Post>
+
+    @GET("api/posts/{id}/replies")
+    suspend fun getPostReplies(@Path("id") id: String): Response<List<Reply>>
+
+    @POST("api/posts/{id}/replies")
+    suspend fun createReply(@Path("id") id: String, @Body request: CreateReplyRequest): Response<Reply>
+
+    // Public profile
+    @GET("api/users/{id}")
+    suspend fun getPublicProfile(@Path("id") id: String): Response<PublicProfile>
+
     // Upload
     @Multipart
     @POST("api/upload/voice")

@@ -287,6 +287,58 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { err(e) }
     }
 
+    // Post detail + replies
+    private val _postDetail = MutableStateFlow<Post?>(null)
+    val postDetail: StateFlow<Post?> = _postDetail
+
+    private val _replies = MutableStateFlow<List<Reply>>(emptyList())
+    val replies: StateFlow<List<Reply>> = _replies
+
+    fun loadPostDetail(postId: String) = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.getPostDetail(postId)
+            if (resp.isSuccessful) _postDetail.value = resp.body()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun loadReplies(postId: String) = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.getPostReplies(postId)
+            if (resp.isSuccessful) _replies.value = resp.body() ?: emptyList()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun createReply(postId: String, content: String, parentId: String? = null, onDone: () -> Unit = {}) = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.createReply(postId, CreateReplyRequest(content, parentId))
+            if (resp.isSuccessful) {
+                loadReplies(postId)
+                loadPostDetail(postId)  // refresh replies_count
+                onDone()
+            } else {
+                _error.value = "Reply failed: ${resp.code()}"
+            }
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun clearPostDetail() {
+        _postDetail.value = null
+        _replies.value = emptyList()
+    }
+
+    // Public profile
+    private val _publicProfile = MutableStateFlow<PublicProfile?>(null)
+    val publicProfile: StateFlow<PublicProfile?> = _publicProfile
+
+    fun loadPublicProfile(userId: String) = viewModelScope.launch {
+        try {
+            val resp = ApiClient.api.getPublicProfile(userId)
+            if (resp.isSuccessful) _publicProfile.value = resp.body()
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun clearPublicProfile() { _publicProfile.value = null }
+
     // Chats
     fun loadChats() = viewModelScope.launch {
         try {
