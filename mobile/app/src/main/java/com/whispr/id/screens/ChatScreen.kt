@@ -61,7 +61,7 @@ fun ChatScreen(
     viewModel: WhisprViewModel,
     onBack: () -> Unit,
     onGifPicker: () -> Unit,
-    onCall: () -> Unit
+    onCall: (String) -> Unit
 ) {
     val messages by viewModel.messages.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
@@ -190,6 +190,12 @@ fun ChatScreen(
                                     createdAt = msg.timestamp
                                 )
                             )
+                        } else if (msg.type == "incoming_call") {
+                            // Server pushed an incoming call on the chat channel
+                            val call = Gson().fromJson(text, com.whispr.id.data.IncomingCall::class.java)
+                            if (call.callId.isNotBlank()) viewModel.setIncomingCall(call)
+                        } else if (msg.type == "call_ended" || msg.type == "call_answered") {
+                            viewModel.setCallStatus(if (msg.type == "call_answered") "active" else "idle")
                         }
                     } catch (_: Exception) {}
                 }
@@ -270,7 +276,12 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onCall) {
+                    IconButton(onClick = {
+                        // Find peer id from chat list to start a call
+                        val peer = viewModel.chats.value
+                            .firstOrNull { it.id == chatId }?.user
+                        if (peer?.id != null && peer.id.isNotBlank()) onCall(peer.id)
+                    }) {
                         Icon(Icons.Default.Call, "Call", tint = VioletBright)
                     }
                 },

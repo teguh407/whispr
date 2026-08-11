@@ -275,6 +275,16 @@ data class CallSession(
     val status: String = "ringing"
 )
 
+data class IncomingCall(
+    @SerializedName("call_id") val callId: String = "",
+    val caller: CallerInfo? = null
+)
+
+data class CallerInfo(
+    val id: String = "",
+    val username: String = ""
+)
+
 data class CallSignal(
     val type: String,
     val data: Any? = null,

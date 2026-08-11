@@ -128,7 +128,7 @@ interface ApiService {
 
     // Call
     @POST("api/call/start")
-    suspend fun startCall(@Body body: Map<String, String>): Response<CallSession>
+    suspend fun startCall(@Query("target_user_id") userId: String): Response<CallSession>
 
     @POST("api/call/{id}/answer")
     suspend fun answerCall(@Path("id") callId: String): Response<Unit>

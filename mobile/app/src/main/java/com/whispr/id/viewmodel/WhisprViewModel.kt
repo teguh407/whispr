@@ -506,10 +506,68 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // Call
+    private val _activeCall = MutableStateFlow<CallSession?>(null)
+    val activeCall: StateFlow<CallSession?> = _activeCall
+
+    // Incoming call notification (from WS chat channel "incoming_call")
+    private val _incomingCall = MutableStateFlow<IncomingCall?>(null)
+    val incomingCall: StateFlow<IncomingCall?> = _incomingCall
+    fun setIncomingCall(call: IncomingCall?) { _incomingCall.value = call }
+
+    // Global call-signaling WS listener (always on while logged in)
+    private var callWs: okhttp3.WebSocket? = null
+    fun connectCallListener() {
+        if (callWs != null) return
+        val context = application
+        val token = com.whispr.id.network.TokenStore.getToken(context)
+        if (token.isNullOrBlank()) return
+        val url = com.whispr.id.network.ApiClient.getWsUrl("/ws/call/$token")
+        callWs = com.whispr.id.network.ApiClient.okHttpClient.newWebSocket(
+            okhttp3.Request.Builder().url(url).build(),
+            object : okhttp3.WebSocketListener() {
+                override fun onMessage(webSocket: okhttp3.WebSocket, text: String) {
+                    try {
+                        val json = org.json.JSONObject(text)
+                        when (json.optString("type")) {
+                            "incoming_call" -> {
+                                val call = com.google.gson.Gson().fromJson(text, IncomingCall::class.java)
+                                if (call.callId.isNotBlank()) _incomingCall.value = call
+                            }
+                            "call_answered" -> _callStatus.value = "active"
+                            "call_ended" -> _callStatus.value = "idle"
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+        )
+    }
+    fun disconnectCallListener() {
+        callWs?.close(1000, "bye"); callWs = null
+    }
+
+    // WebRTC call status (drives VoiceCallScreen UI)
+    private val _callStatus = MutableStateFlow("idle") // idle|connecting|ringing|active|ended
+    val callStatus: StateFlow<String> = _callStatus
+    fun setCallStatus(s: String) { _callStatus.value = s }
+
     fun startCall(userId: String) = viewModelScope.launch {
         try {
-            val resp = ApiClient.api.startCall(mapOf("user_id" to userId))
-            if (resp.isSuccessful) _activeCall.value = resp.body()
+            val resp = ApiClient.api.startCall(userId)
+            if (resp.isSuccessful) {
+                _activeCall.value = resp.body()
+                _callStatus.value = "connecting"
+            } else _error.value = "Call failed: ${resp.code()}"
+        } catch (e: Exception) { err(e) }
+    }
+
+    fun answerCall() = viewModelScope.launch {
+        try {
+            val cid = _activeCall.value?.id
+                ?: _incomingCall.value?.callId
+                ?: return@launch
+            _activeCall.value = _activeCall.value ?: CallSession(id = cid, status = "ringing")
+            val resp = ApiClient.api.answerCall(cid)
+            if (resp.isSuccessful) _callStatus.value = "active"
         } catch (e: Exception) { err(e) }
     }
 
@@ -518,6 +576,8 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
             try { ApiClient.api.endCall(call.id) } catch (_: Exception) {}
         }
         _activeCall.value = null
+        _incomingCall.value = null
+        _callStatus.value = "idle"
     }
 
     // Karma

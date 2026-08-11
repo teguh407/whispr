@@ -43,7 +43,9 @@ sealed class Screen(val route: String) {
     object Profile : Screen("profile")
     object Accounts : Screen("accounts")
     object Links : Screen("links")
-    object VoiceCall : Screen("voice_call")
+    object VoiceCall : Screen("voice_call/{peerId}/{incoming}/{callId}") {
+        fun createRoute(peerId: String, incoming: Boolean = false, callId: String = "") = "voice_call/$peerId/$incoming/$callId"
+    }
     object GifPicker : Screen("gif_picker")
     object Settings : Screen("settings")
     object Blocks : Screen("blocks")
@@ -136,6 +138,15 @@ fun WhisprNavigation(
 
     val globalError by viewModel.error.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Keep a global call-signaling listener open while logged in
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            viewModel.connectCallListener()
+        } else {
+            viewModel.disconnectCallListener()
+        }
+    }
 
     LaunchedEffect(globalError) {
         globalError?.let { msg ->
@@ -244,7 +255,10 @@ fun WhisprNavigation(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
                 onGifPicker = { navController.navigate(Screen.GifPicker.route) },
-                onCall = { navController.navigate(Screen.VoiceCall.route) }
+                onCall = { peerId ->
+                    viewModel.startCall(peerId)
+                    navController.navigate(Screen.VoiceCall.createRoute(peerId, incoming = false))
+                }
             )
         }
 
@@ -278,11 +292,41 @@ fun WhisprNavigation(
             )
         }
 
-        composable(Screen.VoiceCall.route) {
+        composable(
+            Screen.VoiceCall.route,
+            arguments = listOf(
+                navArgument("peerId") { type = NavType.StringType },
+                navArgument("incoming") { type = NavType.BoolType; defaultValue = false },
+                navArgument("callId") { type = NavType.StringType; defaultValue = "" }
+            )
+        ) { backStackEntry ->
+            val peerId = backStackEntry.arguments?.getString("peerId") ?: ""
+            val incoming = backStackEntry.arguments?.getBoolean("incoming") ?: false
+            val callIdArg = backStackEntry.arguments?.getString("callId") ?: ""
+            // Peer display name from chats list (fallback: Anonymous)
+            val peerName = viewModel.chats.value
+                .firstOrNull { it.user?.id == peerId }
+                ?.user?.let { it.displayName ?: it.username } ?: "Anonymous"
             VoiceCallScreen(
                 viewModel = viewModel,
-                onEndCall = { navController.popBackStack() }
+                onEndCall = { navController.popBackStack() },
+                peerName = peerName,
+                peerId = peerId,
+                isIncoming = incoming,
+                routeCallId = callIdArg
             )
+        }
+
+        // Auto-open incoming call UI when server pushes incoming_call on chat WS
+        val incomingCall by viewModel.incomingCall.collectAsState()
+        LaunchedEffect(incomingCall) {
+            incomingCall?.let { call ->
+                val callerId = call.caller?.id ?: ""
+                if (callerId.isNotBlank()) {
+                    navController.navigate(Screen.VoiceCall.createRoute(callerId, incoming = true, callId = call.callId))
+                }
+                viewModel.setIncomingCall(null)
+            }
         }
 
         composable(Screen.GifPicker.route) {

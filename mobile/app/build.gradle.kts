@@ -97,6 +97,9 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     
+    // WebRTC for voice calls
+    implementation("io.github.webrtc-sdk:android:137.7151.05")
+    
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
 

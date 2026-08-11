@@ -1,7 +1,12 @@
 package com.whispr.id.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -14,29 +19,107 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.whispr.id.ui.components.PersonaAvatar
 import com.whispr.id.ui.theme.*
+import com.whispr.id.util.CallManager
 import com.whispr.id.viewmodel.WhisprViewModel
 
 @Composable
 fun VoiceCallScreen(
     viewModel: WhisprViewModel,
     onEndCall: () -> Unit,
-    peerName: String = "Anonymous"
+    peerName: String = "Anonymous",
+    peerId: String? = null,
+    isIncoming: Boolean = false,
+    routeCallId: String = ""
 ) {
+    val context = LocalContext.current
     var isMuted by remember { mutableStateOf(false) }
     var isSpeaker by remember { mutableStateOf(false) }
     var callDuration by remember { mutableIntStateOf(0) }
+    var hasPermission by remember { mutableStateOf(
+        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+    ) }
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(1000)
-            callDuration++
+    val status by viewModel.callStatus.collectAsState()
+    val incomingCall by viewModel.incomingCall.collectAsState()
+    val callId = routeCallId.ifBlank { viewModel.activeCall.value?.id ?: incomingCall?.callId ?: "" }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasPermission = granted
+        if (granted && callId.isNotBlank() && peerId != null) {
+            if (isIncoming) {
+                CallManager.answerCall(context, callId, peerId, null)
+                viewModel.answerCall()
+            } else {
+                CallManager.startCall(context, callId, peerId)
+            }
         }
     }
+
+    // Start/answer the WebRTC call once we have an id + permission
+    LaunchedEffect(callId, peerId, hasPermission, isIncoming) {
+        if (callId.isNotBlank() && peerId != null && hasPermission && !CallManager.isInCall()) {
+            if (isIncoming) {
+                CallManager.answerCall(context, callId, peerId, null)
+                viewModel.answerCall()
+            } else {
+                CallManager.startCall(context, callId, peerId)
+            }
+        }
+    }
+
+    // Request mic permission on first entry
+    LaunchedEffect(Unit) {
+        if (!hasPermission) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    // Mirror CallManager events into the ViewModel status
+    LaunchedEffect(Unit) {
+        CallManager.listener = object : CallManager.Listener {
+            override fun onConnecting() { viewModel.setCallStatus("connecting") }
+            override fun onRinging() { viewModel.setCallStatus("ringing") }
+            override fun onConnected() { viewModel.setCallStatus("active") }
+            override fun onRemoteIce() {}
+            override fun onCallEnded() {
+                viewModel.setCallStatus("idle")
+                onEndCall()
+            }
+            override fun onError(msg: String) {
+                viewModel.setCallStatus("idle")
+                onEndCall()
+            }
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            if (CallManager.isInCall()) {
+                CallManager.endCall(context, notifyPeer = true)
+            }
+            CallManager.listener = null
+        }
+    }
+
+    // Timer when active
+    LaunchedEffect(status) {
+        if (status == "active") {
+            while (true) {
+                kotlinx.coroutines.delay(1000)
+                callDuration++
+            }
+        }
+    }
+
+    val isActive = status == "active"
 
     // Subtle pulsing ring behind the avatar.
     val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
@@ -63,8 +146,17 @@ fun VoiceCallScreen(
             Spacer(Modifier.height(8.dp))
             Text(peerName, color = TextPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
-            Text(formatDuration(callDuration), color = VioletBright, fontSize = 18.sp,
-                fontWeight = FontWeight.Medium)
+            Text(
+                when {
+                    isActive -> formatDuration(callDuration)
+                    status == "ringing" -> "Ringing..."
+                    status == "connecting" -> "Connecting..."
+                    isIncoming -> "Incoming call..."
+                    else -> "Call ended"
+                },
+                color = if (isActive) VioletBright else TextTertiary,
+                fontSize = 18.sp, fontWeight = FontWeight.Medium
+            )
 
             Spacer(Modifier.height(56.dp))
 
@@ -79,62 +171,96 @@ fun VoiceCallScreen(
                 PersonaAvatar(peerName, size = 132)
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(72.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(28.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                CallControl(
+            // Control buttons
+            Row(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Mute
+                CallControlButton(
                     icon = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
                     label = if (isMuted) "Unmute" else "Mute",
-                    active = isMuted
-                ) { isMuted = !isMuted }
-
-                FloatingActionButton(
-                    onClick = { viewModel.endCall(); onEndCall() },
-                    containerColor = ErrorRed,
-                    shape = CircleShape,
-                    modifier = Modifier.size(72.dp)
-                ) {
-                    Icon(Icons.Default.CallEnd, "End", tint = Color.White,
-                        modifier = Modifier.size(32.dp))
-                }
-
-                CallControl(
+                    tint = if (isMuted) ErrorRed else TextPrimary,
+                    onClick = {
+                        isMuted = !isMuted
+                        CallManager.setMuted(isMuted)
+                    }
+                )
+                // End / Decline
+                CallControlButton(
+                    icon = Icons.Default.CallEnd,
+                    label = if (isIncoming && !isActive) "Decline" else "End",
+                    tint = ErrorRed,
+                    big = true,
+                    onClick = {
+                        viewModel.endCall()
+                        CallManager.endCall(context, notifyPeer = true)
+                        onEndCall()
+                    }
+                )
+                // Speaker
+                CallControlButton(
                     icon = if (isSpeaker) Icons.Default.VolumeUp else Icons.Default.VolumeDown,
-                    label = "Speaker",
-                    active = isSpeaker
-                ) { isSpeaker = !isSpeaker }
+                    label = if (isSpeaker) "Speaker" else "Earpiece",
+                    tint = if (isSpeaker) AccentTeal else TextPrimary,
+                    onClick = {
+                        isSpeaker = !isSpeaker
+                        CallManager.setSpeaker(isSpeaker)
+                    }
+                )
             }
-            Spacer(Modifier.height(40.dp))
+
+            Spacer(Modifier.height(20.dp))
+
+            // Accept button for incoming calls
+            if (isIncoming && !isActive) {
+                CallControlButton(
+                    icon = Icons.Default.Call,
+                    label = "Accept",
+                    tint = OnlineGreen,
+                    big = true,
+                    onClick = {
+                        viewModel.answerCall()
+                        if (callId.isNotBlank() && peerId != null && hasPermission) {
+                            CallManager.answerCall(context, callId, peerId, null)
+                        }
+                    }
+                )
+            }
+
+            if (!hasPermission) {
+                Spacer(Modifier.height(16.dp))
+                Text("Microphone permission needed", color = TextTertiary, fontSize = 12.sp)
+            }
         }
     }
 }
 
 @Composable
-private fun CallControl(
+private fun CallControlButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
-    active: Boolean,
-    onClick: () -> Unit
+    tint: Color,
+    onClick: () -> Unit,
+    big: Boolean = false
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        FloatingActionButton(
-            onClick = onClick,
-            containerColor = if (active) VioletBright else CardBg,
-            shape = CircleShape,
-            modifier = Modifier.size(60.dp)
+        Box(
+            modifier = Modifier
+                .size(if (big) 72.dp else 58.dp)
+                .clip(CircleShape)
+                .background(if (big) tint.copy(alpha = 0.18f) else Surface)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
         ) {
-            Icon(icon, label, tint = if (active) Color.White else TextPrimary,
-                modifier = Modifier.size(26.dp))
+            Icon(icon, label, tint = tint, modifier = Modifier.size(if (big) 30.dp else 24.dp))
         }
-        Spacer(Modifier.height(8.dp))
-        Text(label, color = TextSecondary, fontSize = 12.sp)
+        Spacer(Modifier.height(6.dp))
+        Text(label, color = TextTertiary, fontSize = 11.sp)
     }
 }
 
-private fun formatDuration(seconds: Int): String {
-    val h = seconds / 3600
-    val m = (seconds % 3600) / 60
-    val s = seconds % 60
-    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
+fun formatDuration(totalSeconds: Int): String {
+    val m = totalSeconds / 60
+    val s = totalSeconds % 60
+    return "%02d:%02d".format(m, s)
 }
