@@ -120,7 +120,7 @@ fun SettingsScreen(
                 value = serverUrl,
                 onValueChange = { serverUrl = it; saved = false },
                 label = { Text("API Base URL") },
-                placeholder = { Text("http://43.153.207.36/") },
+                placeholder = { Text("https://whispr.tdsign.app/") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -166,7 +166,7 @@ fun SettingsScreen(
                 modifier = Modifier.clickable {
                     val intent = android.content.Intent(
                         android.content.Intent.ACTION_VIEW,
-                        android.net.Uri.parse("http://43.153.207.36/privacy.html")
+                        android.net.Uri.parse("https://whispr.tdsign.app/privacy.html")
                     )
                     intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                     androidx.core.content.ContextCompat.startActivity(
