@@ -73,6 +73,9 @@ fun ChatScreen(
     var mediaRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var recordedFile by remember { mutableStateOf<File?>(null) }
     var ws by remember { mutableStateOf<WebSocket?>(null) }
+    var wsConnected by remember { mutableStateOf(false) }
+    val reconnectScope = rememberCoroutineScope()
+    var shouldReconnect by remember { mutableStateOf(true) }
 
     // Anti-screenshot: FLAG_SECURE on the hosting Activity window
     val activity = context as? android.app.Activity
@@ -160,36 +163,57 @@ fun ChatScreen(
 
     LaunchedEffect(chatId) {
         viewModel.loadMessages(chatId)
-        // Connect WebSocket
+        // Connect WebSocket with auto-reconnect
         val token = com.whispr.id.network.TokenStore.getToken(context)
         val wsUrl = ApiClient.getWsUrl("/ws/chat/$token")
         val client = ApiClient.okHttpClient
-        val request = Request.Builder().url(wsUrl).build()
-        ws = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                try {
-                    val msg = Gson().fromJson(text, WsMessage::class.java)
-                    if (msg.type in listOf("message", "photo", "document", "voice", "gif")) {
-                        viewModel.addMessage(
-                            ChatMessage(
-                                id = msg.id,
-                                senderId = msg.senderId ?: "",
-                                content = msg.content ?: "",
-                                type = msg.type,
-                                mediaUrl = msg.mediaUrl,
-                                isOnceView = msg.isOnceView ?: false,
-                                filename = msg.filename,
-                                createdAt = msg.timestamp
+
+        fun connect() {
+            val request = Request.Builder().url(wsUrl).build()
+            ws = client.newWebSocket(request, object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: okhttp3.Response) {
+                    wsConnected = true
+                }
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    try {
+                        val msg = Gson().fromJson(text, WsMessage::class.java)
+                        if (msg.type in listOf("message", "photo", "document", "voice", "gif")) {
+                            viewModel.addMessage(
+                                ChatMessage(
+                                    id = msg.id,
+                                    senderId = msg.senderId ?: "",
+                                    content = msg.content ?: "",
+                                    type = msg.type,
+                                    mediaUrl = msg.mediaUrl,
+                                    isOnceView = msg.isOnceView ?: false,
+                                    filename = msg.filename,
+                                    createdAt = msg.timestamp
+                                )
                             )
-                        )
+                        }
+                    } catch (_: Exception) {}
+                }
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) {
+                    wsConnected = false
+                    // Auto-reconnect after 3s (unless screen was disposed)
+                    reconnectScope.launch {
+                        kotlinx.coroutines.delay(3000)
+                        if (shouldReconnect) connect()
                     }
-                } catch (_: Exception) {}
-            }
-        })
+                }
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    wsConnected = false
+                }
+            })
+        }
+        connect()
     }
 
     DisposableEffect(Unit) {
-        onDispose { ws?.close(1000, "bye"); ws = null }
+        onDispose {
+            shouldReconnect = false
+            ws?.close(1000, "bye"); ws = null
+        }
     }
 
     LaunchedEffect(messages.size) {
@@ -211,7 +235,11 @@ fun ChatScreen(
                         Column {
                             Text(peerName, fontWeight = FontWeight.Bold, fontSize = 16.sp,
                                 color = TextPrimary)
-                            Text("Online", fontSize = 11.sp, color = OnlineGreen)
+                            Text(
+                                if (wsConnected) "Online" else "Connecting...",
+                                fontSize = 11.sp,
+                                color = if (wsConnected) OnlineGreen else TextTertiary
+                            )
                         }
                     }
                 },

@@ -131,6 +131,20 @@ fun WhisprNavigation(
         return
     }
 
+    val globalError by viewModel.error.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(globalError) {
+        globalError?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearError()
+        }
+    }
+
+    androidx.compose.material3.Scaffold(
+        containerColor = Color.Transparent,
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbarHostState) }
+    ) { _ ->
     NavHost(
         navController = navController,
         startDestination = if (isLoggedIn) Screen.Feed.route else Screen.Login.route
@@ -398,5 +412,6 @@ fun WhisprNavigation(
                 onThemeChange = onThemeChange
             )
         }
+    }
     }
 }
