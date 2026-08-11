@@ -138,7 +138,11 @@ fun ProfileDetailScreen(
             // Message button (unless self)
             if (!p.isSelf) {
                 Button(
-                    onClick = { onMessage(p.id) },
+                    onClick = {
+                        viewModel.createChat(p.id) { chatId ->
+                            onMessage(chatId)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)

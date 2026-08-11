@@ -177,8 +177,9 @@ fun DiscoverScreen(
     }
 
     val handleMessage: (String) -> Unit = { userId ->
-        viewModel.createChat(userId)
-        onMessage(userId)
+        viewModel.createChat(userId) { chatId ->
+            onMessage(chatId)
+        }
     }
 
     // Client-side name search layered over server-filtered results

@@ -81,7 +81,7 @@ interface ApiService {
     suspend fun getChats(): Response<List<Chat>>
 
     @POST("api/chats")
-    suspend fun createChat(@Body body: Map<String, String>): Response<Chat>
+    suspend fun createChat(@Body body: Map<String, String>): Response<Map<String, String>>
 
     @GET("api/chats/{id}/messages")
     suspend fun getMessages(@Path("id") chatId: String): Response<List<ChatMessage>>

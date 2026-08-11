@@ -347,10 +347,14 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { err(e) }
     }
 
-    fun createChat(userId: String) = viewModelScope.launch {
+    fun createChat(userId: String, onCreated: (String) -> Unit = {}) = viewModelScope.launch {
         try {
             val resp = ApiClient.api.createChat(mapOf("user_id" to userId))
-            if (resp.isSuccessful) loadChats()
+            if (resp.isSuccessful) {
+                val chatId = resp.body()?.get("chat_id") ?: ""
+                if (chatId.isNotBlank()) onCreated(chatId)
+                loadChats()
+            }
         } catch (e: Exception) { err(e) }
     }
 
