@@ -207,10 +207,10 @@ interface ApiService {
     @POST("api/groups/{id}/join")
     suspend fun joinGroup(@Path("id") groupId: String): Response<Unit>
 
-    @HTTP(method = "DELETE", path = "api/groups/{id}/join")
+    @POST("api/groups/{id}/leave")
     suspend fun leaveGroup(@Path("id") groupId: String): Response<Unit>
 
-    @GET("api/groups/{id}/chat")
+    @GET("api/groups/{id}/messages")
     suspend fun getGroupMessages(@Path("id") groupId: String): Response<List<GroupMessage>>
 
     // Games — match actual backend API
