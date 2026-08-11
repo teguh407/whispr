@@ -327,7 +327,7 @@ private fun ReplyBubble(
     onReply: (Reply) -> Unit
 ) {
     val authorName = reply.author?.displayName ?: reply.author?.username ?: "Ghost"
-    val indent = depth * 20.dp
+    val indent = (depth * 20).dp
     val isMine = reply.author?.id == currentUser?.id
 
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
