@@ -33,6 +33,8 @@ fun SettingsScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     var saved by remember { mutableStateOf(false) }
     var showEditBaseUrl by remember { mutableStateOf(false) }
+    var showServerSection by remember { mutableStateOf(false) }
+    var serverRevealCount by remember { mutableStateOf(0) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var deletePassword by remember { mutableStateOf("") }
     val deleteResult by viewModel.deleteAccountResult.collectAsState()
@@ -113,50 +115,61 @@ fun SettingsScreen(
             Divider(color = TextSecondary.copy(alpha = 0.2f))
             Spacer(Modifier.height(24.dp))
 
-            // ── Server ──
-            Text("Server", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
-            Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
-                value = serverUrl,
-                onValueChange = { serverUrl = it; saved = false },
-                label = { Text("API Base URL") },
-                placeholder = { Text("https://whispr.tdsign.app/") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PrimaryPurple,
-                    unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f),
-                    unfocusedContainerColor = CardBg,
-                    focusedContainerColor = Color.Transparent,
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary
-                ),
-                singleLine = true
-            )
-            Spacer(Modifier.height(12.dp))
+            // ── Server (hidden — tap version 7x to reveal) ──
+            if (showServerSection) {
+                Text("Server", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = serverUrl,
+                    onValueChange = { serverUrl = it; saved = false },
+                    label = { Text("API Base URL") },
+                    placeholder = { Text("https://whispr.tdsign.app/") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PrimaryPurple,
+                        unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f),
+                        unfocusedContainerColor = CardBg,
+                        focusedContainerColor = Color.Transparent,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    singleLine = true
+                )
+                Spacer(Modifier.height(12.dp))
 
-            Button(
-                onClick = {
-                    viewModel.setBaseUrl(serverUrl)
-                    saved = true
-                },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-            ) {
-                if (saved) Icon(Icons.Default.Check, null)
-                Spacer(Modifier.width(8.dp))
-                Text(if (saved) "Saved!" else "Save Server URL")
+                Button(
+                    onClick = {
+                        viewModel.setBaseUrl(serverUrl)
+                        saved = true
+                    },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
+                ) {
+                    if (saved) Icon(Icons.Default.Check, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (saved) "Saved!" else "Save Server URL")
+                }
+
+                Spacer(Modifier.height(32.dp))
+                Divider(color = TextSecondary.copy(alpha = 0.2f))
+                Spacer(Modifier.height(24.dp))
             }
-
-            Spacer(Modifier.height(32.dp))
-            Divider(color = TextSecondary.copy(alpha = 0.2f))
-            Spacer(Modifier.height(24.dp))
 
             // ── About ──
             Text("About", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
             Spacer(Modifier.height(12.dp))
-            Text("Whispr v1.3.0", color = TextSecondary)
+            Text(
+                "Whispr v1.3.0",
+                color = TextSecondary,
+                modifier = Modifier.clickable {
+                    serverRevealCount++
+                    if (serverRevealCount >= 7) {
+                        showServerSection = true
+                    }
+                }
+            )
             Text("Anonymous. Real. You.", color = TextSecondary, fontSize = 13.sp)
             Spacer(Modifier.height(8.dp))
             Text(

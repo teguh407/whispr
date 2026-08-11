@@ -65,9 +65,6 @@ fun ProfileScreen(
     val trustScore = 500 + karma * 2 + days * 5
     val whisprId = "#" + (user?.id?.take(7)?.uppercase() ?: "0000000")
 
-    var showInNearby by remember { mutableStateOf(true) }
-    var readReceipts by remember { mutableStateOf(false) }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -220,16 +217,6 @@ fun ProfileScreen(
                 Surface(color = CardBg, shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()) {
                     Column {
-                        ToggleRow("Show me in Nearby", Icons.Default.LocationOn, showInNearby) {
-                            showInNearby = it
-                            viewModel.updateProfile(displayName = user?.displayName, bio = user?.bio)
-                        }
-                        Divider(color = Background, thickness = 1.dp)
-                        ToggleRow("Read Receipts", Icons.Default.DoneAll, readReceipts) {
-                            readReceipts = it
-                            viewModel.updateProfile(displayName = user?.displayName, bio = user?.bio)
-                        }
-                        Divider(color = Background, thickness = 1.dp)
                         NavRow("My Chats", Icons.Default.Chat, onChats)
                         Divider(color = Background, thickness = 1.dp)
                         NavRow("Switch Account", Icons.Default.SwitchAccount, onSwitchAccount)

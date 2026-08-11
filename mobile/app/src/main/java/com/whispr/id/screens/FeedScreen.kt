@@ -160,9 +160,6 @@ fun FeedScreen(
                             IconButton(onClick = { onNavigate("stories") }) {
                                 Icon(Icons.Outlined.PhotoCamera, "Stories", tint = TextSecondary)
                             }
-                            IconButton(onClick = { onNavigate("notifications") }) {
-                                Icon(Icons.Outlined.Notifications, "Notifications", tint = TextSecondary)
-                            }
                         }
                     }
                     Spacer(Modifier.height(2.dp))
