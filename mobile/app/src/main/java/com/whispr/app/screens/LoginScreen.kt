@@ -130,7 +130,7 @@ fun LoginScreen(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                stringResource(R.string.login_tagline),
+                "Anonymous. Real. You.",
                 fontSize = 13.sp,
                 color = TextSecondary,
                 letterSpacing = 2.sp
@@ -141,7 +141,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it; emailError = null },
-                label = { Text(stringResource(R.string.email)) },
+                label = { Text("Email") },
                 leadingIcon = { Icon(Icons.Default.Email, null, tint = TextSecondary) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 modifier = Modifier.fillMaxWidth(),
@@ -166,7 +166,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text(stringResource(R.string.password)) },
+                label = { Text("Password") },
                 leadingIcon = { Icon(Icons.Default.Lock, null, tint = TextSecondary) },
                 trailingIcon = {
                     IconButton(onClick = { showPassword = !showPassword }) {
@@ -246,7 +246,7 @@ fun LoginScreen(
                     )
                 } else {
                     Text(
-                        stringResource(R.string.login),
+                        "Login",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.5.sp
@@ -260,14 +260,14 @@ fun LoginScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                HorizontalDivider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.15f))
+                Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.15f))
                 Text(
-                    stringResource(R.string.or),
+                    "  or  ",
                     color = TextSecondary,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
-                HorizontalDivider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.15f))
+                Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.15f))
             }
             Spacer(Modifier.height(20.dp))
 
@@ -301,7 +301,7 @@ fun LoginScreen(
                     }
                     Spacer(Modifier.width(10.dp))
                     Text(
-                        stringResource(R.string.continue_with_google),
+                        "Continue with Google",
                         color = Color(0xFF1A1A28),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium
@@ -322,12 +322,12 @@ fun LoginScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    stringResource(R.string.no_account),
+                    "Don't have an account? ",
                     color = TextSecondary,
                     fontSize = 14.sp
                 )
                 Text(
-                    stringResource(R.string.register),
+                    "Register",
                     color = PrimaryPink,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
