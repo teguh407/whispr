@@ -181,7 +181,7 @@ object CallManager {
         pc?.setAudioPlayout(true)
 
         if (remoteOfferSdp != null) {
-            pc?.setRemoteDescription(SessionDescription(SessionDescription.Type.OFFER, remoteOfferSdp), object : SdpObserver {
+            pc?.setRemoteDescription(object : SdpObserver {
                 override fun onCreateSuccess(desc: SessionDescription?) {}
                 override fun onSetSuccess() {
                     val constraints = MediaConstraints().apply {
@@ -210,7 +210,7 @@ object CallManager {
                 override fun onSetFailure(e: String?) { listener?.onError("Set remote failed: $e") }
                 override fun onCreateFailure(e: String?) { listener?.onError("Create remote failed: $e") }
                 override fun onCreateSuccess(desc: SessionDescription?) {}
-            })
+            }, SessionDescription(SessionDescription.Type.OFFER, remoteOfferSdp))
         } else {
             listener?.onRinging()
         }
@@ -260,7 +260,7 @@ object CallManager {
                 "offer" -> {
                     val sdp = json.optString("sdp")
                     pc ?: return
-                    pc?.setRemoteDescription(SessionDescription(SessionDescription.Type.OFFER, sdp), object : SdpObserver {
+                    pc?.setRemoteDescription(object : SdpObserver {
                         override fun onCreateSuccess(desc: SessionDescription?) {}
                         override fun onSetSuccess() {
                             val constraints = MediaConstraints().apply {
@@ -289,17 +289,17 @@ object CallManager {
                         override fun onSetFailure(e: String?) { listener?.onError("Remote offer failed: $e") }
                         override fun onCreateFailure(e: String?) {}
                         override fun onCreateSuccess(desc: SessionDescription?) {}
-                    })
+                    }, SessionDescription(SessionDescription.Type.OFFER, sdp))
                 }
                 "answer" -> {
                     val sdp = json.optString("sdp")
-                    pc?.setRemoteDescription(SessionDescription(SessionDescription.Type.ANSWER, sdp), object : SdpObserver {
+                    pc?.setRemoteDescription(object : SdpObserver {
                         override fun onCreateSuccess(desc: SessionDescription?) {}
                         override fun onSetSuccess() { listener?.onConnected() }
                         override fun onSetFailure(e: String?) { listener?.onError("Set answer failed: $e") }
                         override fun onCreateFailure(e: String?) {}
                         override fun onCreateSuccess(desc: SessionDescription?) {}
-                    })
+                    }, SessionDescription(SessionDescription.Type.ANSWER, sdp))
                 }
                 "ice" -> {
                     val candidate = json.optString("candidate")

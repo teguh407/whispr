@@ -148,6 +148,18 @@ fun WhisprNavigation(
         }
     }
 
+    // Auto-open incoming call UI when server pushes incoming_call
+    val incomingCall by viewModel.incomingCall.collectAsState()
+    LaunchedEffect(incomingCall) {
+        incomingCall?.let { call ->
+            val callerId = call.caller?.id ?: ""
+            if (callerId.isNotBlank()) {
+                navController.navigate(Screen.VoiceCall.createRoute(callerId, incoming = true, callId = call.callId))
+            }
+            viewModel.setIncomingCall(null)
+        }
+    }
+
     LaunchedEffect(globalError) {
         globalError?.let { msg ->
             snackbarHostState.showSnackbar(msg)
@@ -315,18 +327,6 @@ fun WhisprNavigation(
                 isIncoming = incoming,
                 routeCallId = callIdArg
             )
-        }
-
-        // Auto-open incoming call UI when server pushes incoming_call on chat WS
-        val incomingCall by viewModel.incomingCall.collectAsState()
-        LaunchedEffect(incomingCall) {
-            incomingCall?.let { call ->
-                val callerId = call.caller?.id ?: ""
-                if (callerId.isNotBlank()) {
-                    navController.navigate(Screen.VoiceCall.createRoute(callerId, incoming = true, callId = call.callId))
-                }
-                viewModel.setIncomingCall(null)
-            }
         }
 
         composable(Screen.GifPicker.route) {

@@ -48,7 +48,9 @@ fun VoiceCallScreen(
 
     val status by viewModel.callStatus.collectAsState()
     val incomingCall by viewModel.incomingCall.collectAsState()
-    val callId = routeCallId.ifBlank { viewModel.activeCall.value?.id ?: incomingCall?.callId ?: "" }
+    val callId: String = routeCallId.ifBlank {
+        viewModel.activeCall.value?.id ?: incomingCall?.callId ?: ""
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
