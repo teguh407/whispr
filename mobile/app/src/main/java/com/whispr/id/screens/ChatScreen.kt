@@ -99,6 +99,7 @@ fun ChatScreen(
             if (resp != null) {
                 val wsMsg = WsMessage(
                     type = "photo",
+                    chatId = chatId,
                     content = caption.ifBlank { null },
                     mediaUrl = resp.url,
                     isOnceView = isOnceView,
@@ -125,6 +126,7 @@ fun ChatScreen(
             if (resp != null) {
                 val wsMsg = WsMessage(
                     type = "document",
+                    chatId = chatId,
                     content = null,
                     mediaUrl = resp.url,
                     filename = resp.filename
@@ -313,6 +315,7 @@ fun ChatScreen(
                                         if (resp != null) {
                                             val wsMsg = WsMessage(
                                                 type = "voice",
+                                                chatId = chatId,
                                                 mediaUrl = resp.url
                                             )
                                             ws?.send(Gson().toJson(wsMsg))
@@ -377,7 +380,7 @@ fun ChatScreen(
 
                 IconButton(onClick = {
                     if (inputText.isNotBlank()) {
-                        val wsMsg = WsMessage(type = "message", content = inputText)
+                        val wsMsg = WsMessage(type = "message", chatId = chatId, content = inputText)
                         ws?.send(Gson().toJson(wsMsg))
                         viewModel.addMessage(
                             ChatMessage(

@@ -186,6 +186,7 @@ data class ChatMessage(
 
 data class WsMessage(
     val type: String,
+    @SerializedName("chat_id") val chatId: String? = null,
     val content: String? = null,
     val senderId: String? = null,
     @SerializedName("media_url") val mediaUrl: String? = null,
