@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.Image
@@ -26,6 +27,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.whispr.app.R
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -72,189 +74,287 @@ fun LoginScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(Background, Surface)
+                    colors = listOf(
+                        Color(0xFF1A0A2E),
+                        Background
+                    )
                 )
             )
-            .verticalScroll(rememberScrollState())
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
     ) {
-        // Logo area
-        Image(
-            painter = painterResource(id = R.drawable.whispr_logo),
-            contentDescription = "Whispr",
-            modifier = Modifier.size(120.dp),
-            contentScale = ContentScale.Fit
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "Whispr",
-            fontSize = 36.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary
-        )
-        Text(
-            "Anonymous. Real. You.",
-            fontSize = 14.sp,
-            color = TextSecondary
-        )
-        Spacer(Modifier.height(48.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Decorative glow behind logo
+            Box(
+                modifier = Modifier
+                    .size(160.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                PrimaryPurple.copy(alpha = 0.15f),
+                                Color.Transparent
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                // Logo area
+                Image(
+                    painter = painterResource(id = R.drawable.whispr_logo),
+                    contentDescription = "Whispr",
+                    modifier = Modifier.size(80.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
 
-        // Email
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it; emailError = null },
-            label = { Text("Email") },
-            leadingIcon = { Icon(Icons.Default.Person, null) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = PrimaryPurple,
-                unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f),
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = CardBg,
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary
-            ),
-            singleLine = true
-        )
-        if (emailError != null) {
-            Text(emailError!!, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
-        }
-        Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
 
-        // Password
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            leadingIcon = { Icon(Icons.Default.Lock, null) },
-            trailingIcon = {
-                IconButton(onClick = { showPassword = !showPassword }) {
-                    Icon(
-                        if (showPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                        null
+            // App name with gradient text effect
+            Text(
+                stringResource(R.string.app_name),
+                fontSize = 36.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = TextPrimary,
+                letterSpacing = 1.sp
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.login_tagline),
+                fontSize = 13.sp,
+                color = TextSecondary,
+                letterSpacing = 2.sp
+            )
+            Spacer(Modifier.height(48.dp))
+
+            // Email
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it; emailError = null },
+                label = { Text(stringResource(R.string.email)) },
+                leadingIcon = { Icon(Icons.Default.Email, null, tint = TextSecondary) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryPurple,
+                    unfocusedBorderColor = TextSecondary.copy(alpha = 0.2f),
+                    focusedContainerColor = PrimaryPurple.copy(alpha = 0.06f),
+                    unfocusedContainerColor = CardBg.copy(alpha = 0.6f),
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary,
+                    cursorColor = PrimaryPurple
+                ),
+                singleLine = true
+            )
+            if (emailError != null) {
+                Text(emailError!!, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+            }
+            Spacer(Modifier.height(16.dp))
+
+            // Password
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text(stringResource(R.string.password)) },
+                leadingIcon = { Icon(Icons.Default.Lock, null, tint = TextSecondary) },
+                trailingIcon = {
+                    IconButton(onClick = { showPassword = !showPassword }) {
+                        Icon(
+                            if (showPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            null,
+                            tint = TextSecondary
+                        )
+                    }
+                },
+                visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryPurple,
+                    unfocusedBorderColor = TextSecondary.copy(alpha = 0.2f),
+                    focusedContainerColor = PrimaryPurple.copy(alpha = 0.06f),
+                    unfocusedContainerColor = CardBg.copy(alpha = 0.6f),
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary,
+                    cursorColor = PrimaryPurple
+                ),
+                singleLine = true
+            )
+
+            // Forgot password
+            Text(
+                "Forgot Password?",
+                color = PrimaryPurple,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .padding(top = 8.dp)
+                    .clickable { /* TODO: forgot password flow */ }
+            )
+
+            Spacer(Modifier.height(28.dp))
+
+            // Login button with gradient
+            Button(
+                onClick = {
+                    val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".toRegex()
+                    if (!email.matches(emailRegex)) {
+                        emailError = "Please enter a valid email address"
+                    } else {
+                        emailError = null
+                        viewModel.login(email, password)
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(PrimaryPurple, VioletBright)
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    ),
+                shape = RoundedCornerShape(14.dp),
+                enabled = !isLoading && email.isNotBlank() && password.isNotBlank() && emailError == null,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Transparent,
+                    disabledContainerColor = PrimaryPurple.copy(alpha = 0.3f)
+                ),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 8.dp,
+                    pressedElevation = 2.dp
+                )
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.5.dp
+                    )
+                } else {
+                    Text(
+                        stringResource(R.string.login),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
                     )
                 }
-            },
-            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = PrimaryPurple,
-                unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f),
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = CardBg,
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary
-            ),
-            singleLine = true
-        )
-        Spacer(Modifier.height(24.dp))
-        Button(
-            onClick = {
-                val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".toRegex()
-                if (!email.matches(emailRegex)) {
-                    emailError = "Please enter a valid email address"
-                } else {
-                    emailError = null
-                    viewModel.login(email, password)
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(12.dp),
-            enabled = !isLoading && email.isNotBlank() && password.isNotBlank() && emailError == null,
-            colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
-            } else {
-                Text("Login", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
-        }
-        Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(20.dp))
 
-        // Divider
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
-            Text("  or  ", color = TextSecondary, fontSize = 12.sp)
-            Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
-        }
-        Spacer(Modifier.height(16.dp))
-
-        // Google Sign-In
-        Surface(
-            onClick = {
-                val intent = GoogleAuthHelper.getSignInIntent(context)
-                googleSignInLauncher.launch(intent)
-            },
-            shape = RoundedCornerShape(12.dp),
-            color = Color.White,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-        ) {
+            // Divider
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                HorizontalDivider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.15f))
+                Text(
+                    stringResource(R.string.or),
+                    color = TextSecondary,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+                HorizontalDivider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.15f))
+            }
+            Spacer(Modifier.height(20.dp))
+
+            // Google Sign-In
+            Surface(
+                onClick = {
+                    val intent = GoogleAuthHelper.getSignInIntent(context)
+                    googleSignInLauncher.launch(intent)
+                },
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White,
+                border = androidx.compose.foundation.BorderStroke(1.dp, TextSecondary.copy(alpha = 0.1f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Stylized Google "G" logo
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(Color.White),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("G", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4285F4))
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        stringResource(R.string.continue_with_google),
+                        color = Color(0xFF1A1A28),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            Spacer(Modifier.height(28.dp))
+
+            // Error
+            error?.let {
+                Text(it, color = ErrorRed, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 8.dp))
+                Spacer(Modifier.height(8.dp))
+            }
+
+            // Register link
+            Row(
+                modifier = Modifier.clickable { onGoToRegister() },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Stylized Google "G" logo
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(Color.White),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("G", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4285F4))
-                }
-                Spacer(Modifier.width(10.dp))
                 Text(
-                    "Continue with Google",
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
+                    stringResource(R.string.no_account),
+                    color = TextSecondary,
+                    fontSize = 14.sp
+                )
+                Text(
+                    stringResource(R.string.register),
+                    color = PrimaryPink,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Settings
+            Row(
+                modifier = Modifier.clickable { onSettings() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Settings,
+                    contentDescription = null,
+                    tint = TextSecondary,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "Server Settings",
+                    color = TextSecondary,
+                    fontSize = 11.sp
                 )
             }
         }
-        Spacer(Modifier.height(16.dp))
-
-        // Error
-        error?.let {
-            Text(it, color = ErrorRed, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(8.dp))
-        }
-
-        // Register link
-        Text(
-            "Don't have an account? Register",
-            color = PrimaryPink,
-            modifier = Modifier.clickable { onGoToRegister() }
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        // Settings
-        Text(
-            "⚙ Server Settings",
-            color = TextSecondary,
-            fontSize = 12.sp,
-            modifier = Modifier.clickable { onSettings() }
-        )
     }
 
     // Full Google error dialog (debuggable — toast truncates the code)
