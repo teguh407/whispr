@@ -26,6 +26,11 @@ object TokenStore {
         return context.dataStore.data.map { it[TOKEN_KEY] }.first()
     }
 
+    /** Blocking read for use outside coroutines (e.g. WebRTC setup). */
+    fun getTokenBlocking(context: Context): String? {
+        return kotlinx.coroutines.runBlocking { getToken(context) }
+    }
+
     suspend fun clearToken(context: Context) {
         context.dataStore.edit { it.remove(TOKEN_KEY) }
     }

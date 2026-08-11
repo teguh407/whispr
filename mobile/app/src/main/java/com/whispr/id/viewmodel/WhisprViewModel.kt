@@ -77,10 +77,6 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading
 
-    // Call
-    private val _activeCall = MutableStateFlow<CallSession?>(null)
-    val activeCall: StateFlow<CallSession?> = _activeCall
-
     // Karma
     private val _karma = MutableStateFlow<KarmaResponse?>(null)
     val karma: StateFlow<KarmaResponse?> = _karma
@@ -518,8 +514,8 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     private var callWs: okhttp3.WebSocket? = null
     fun connectCallListener() {
         if (callWs != null) return
-        val context = application
-        val token = com.whispr.id.network.TokenStore.getToken(context)
+        val context: Application = getApplication()
+        val token = com.whispr.id.network.TokenStore.getTokenBlocking(context)
         if (token.isNullOrBlank()) return
         val url = com.whispr.id.network.ApiClient.getWsUrl("/ws/call/$token")
         callWs = com.whispr.id.network.ApiClient.okHttpClient.newWebSocket(
