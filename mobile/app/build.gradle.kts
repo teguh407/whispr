@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.whispr.app"
+    namespace = "com.whispr.id"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.whispr.app"
+        applicationId = "com.whispr.id"
         minSdk = 26
         targetSdk = 35
         versionCode = 4

@@ -31,8 +31,8 @@
 -keep class * implements com.google.gson.JsonDeserializer
 
 # Keep all model/data classes (Gson serialization)
--keep class com.whispr.app.data.** { *; }
--keepclassmembers class com.whispr.app.data.** {
+-keep class com.whispr.id.data.** { *; }
+-keepclassmembers class com.whispr.id.data.** {
     <fields>;
 }
 
@@ -68,8 +68,8 @@
 -keep class okhttp3.internal.ws.** { *; }
 
 # ── Keep app classes referenced by reflection/navigation ──
--keep class com.whispr.app.navigation.** { *; }
--keep class com.whispr.app.network.** { *; }
+-keep class com.whispr.id.navigation.** { *; }
+-keep class com.whispr.id.network.** { *; }
 
 # ── Credential Manager / Google ID ──
 -keep class androidx.credentials.** { *; }
