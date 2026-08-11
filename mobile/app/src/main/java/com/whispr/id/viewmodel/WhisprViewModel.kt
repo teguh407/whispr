@@ -36,6 +36,16 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    // GIF picked in GifPickerScreen, consumed by ChatScreen
+    private val _pendingGifUrl = MutableStateFlow<String?>(null)
+    val pendingGifUrl: StateFlow<String?> = _pendingGifUrl
+    fun setPendingGif(url: String?) { _pendingGifUrl.value = url }
+    fun consumePendingGif(): String? {
+        val v = _pendingGifUrl.value
+        _pendingGifUrl.value = null
+        return v
+    }
+
     // Posts
     private val _posts = MutableStateFlow<List<Post>>(emptyList())
     val posts: StateFlow<List<Post>> = _posts

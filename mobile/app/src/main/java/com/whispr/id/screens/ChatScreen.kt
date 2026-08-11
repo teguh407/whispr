@@ -209,6 +209,27 @@ fun ChatScreen(
         connect()
     }
 
+    // Pick up any GIF staged by GifPickerScreen and send it via WS
+    LaunchedEffect(chatId) {
+        viewModel.pendingGifUrl.collect { gifUrl ->
+            if (gifUrl != null) {
+                val url = viewModel.consumePendingGif()
+                if (url != null) {
+                    val wsMsg = WsMessage(type = "gif", chatId = chatId, mediaUrl = url)
+                    ws?.send(Gson().toJson(wsMsg))
+                    viewModel.addMessage(
+                        ChatMessage(
+                            senderId = currentUser?.id ?: "",
+                            content = "",
+                            type = "gif",
+                            mediaUrl = url
+                        )
+                    )
+                }
+            }
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             shouldReconnect = false
@@ -476,7 +497,7 @@ fun MessageBubble(
                         "voice" -> VoiceBubbleContent(msg, isMe)
                         "photo" -> PhotoBubbleContent(msg, isMe, onMarkViewed)
                         "document" -> DocumentBubbleContent(msg, isMe)
-                        "gif" -> Text("🎬 GIF", color = if (isMe) Color.White else TextPrimary)
+                        "gif" -> GifBubbleContent(msg, isMe)
                         else -> Text(msg.content,
                             color = if (isMe) Color.White else TextPrimary, lineHeight = 20.sp,
                             fontSize = 15.sp)
@@ -649,6 +670,51 @@ private fun PhotoBubbleContent(
             )
         }
     }
+}
+
+/** GIF bubble — renders the GIF image with rounded corners, tap to view full screen */
+@Composable
+private fun GifBubbleContent(msg: ChatMessage, isMe: Boolean) {
+    var showFullScreen by remember { mutableStateOf(false) }
+    if (showFullScreen) {
+        FullScreenPhotoViewer(
+            url = msg.mediaUrl ?: "",
+            onDismiss = { showFullScreen = false }
+        )
+    }
+    SubcomposeAsyncImage(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(msg.mediaUrl)
+            .crossfade(true)
+            .build(),
+        contentDescription = "GIF",
+        modifier = Modifier
+            .widthIn(max = 240.dp)
+            .heightIn(max = 200.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { showFullScreen = true },
+        contentScale = ContentScale.Fit,
+        loading = {
+            Box(Modifier.size(120.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = PrimaryPurple, modifier = Modifier.size(24.dp))
+            }
+        },
+        error = {
+            Box(
+                Modifier
+                    .size(width = 200.dp, height = 120.dp)
+                    .background(CardBgAlt)
+                    .clickable { showFullScreen = true },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.BrokenImage, "Error", tint = TextTertiary, modifier = Modifier.size(28.dp))
+                    Spacer(Modifier.height(4.dp))
+                    Text("Tap to open", color = TextTertiary, fontSize = 11.sp)
+                }
+            }
+        }
+    )
 }
 
 /** Full-screen photo viewer — black background, tap to dismiss */

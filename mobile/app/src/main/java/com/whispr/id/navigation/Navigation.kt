@@ -290,7 +290,8 @@ fun WhisprNavigation(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
                 onGifSelected = { url ->
-                    // Send GIF URL back to chat
+                    // Stage the URL; ChatScreen picks it up on resume
+                    viewModel.setPendingGif(url)
                     navController.popBackStack()
                 }
             )
