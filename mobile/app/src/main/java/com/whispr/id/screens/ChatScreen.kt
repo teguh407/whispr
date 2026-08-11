@@ -172,6 +172,7 @@ fun ChatScreen(
                     if (msg.type in listOf("message", "photo", "document", "voice", "gif")) {
                         viewModel.addMessage(
                             ChatMessage(
+                                id = msg.id,
                                 senderId = msg.senderId ?: "",
                                 content = msg.content ?: "",
                                 type = msg.type,

@@ -187,9 +187,10 @@ data class ChatMessage(
 
 data class WsMessage(
     val type: String,
+    val id: String? = null,
     @SerializedName("chat_id") val chatId: String? = null,
     val content: String? = null,
-    val senderId: String? = null,
+    @SerializedName("sender_id") val senderId: String? = null,
     @SerializedName("media_url") val mediaUrl: String? = null,
     @SerializedName("is_once_view") val isOnceView: Boolean? = null,
     @SerializedName("ttl_seconds") val destructSeconds: Int? = null,
