@@ -501,15 +501,18 @@ fun MessageBubble(msg: ChatMessage, isMe: Boolean, onSetTtl: (String, Int) -> Un
 @Composable
 private fun PhotoBubbleContent(msg: ChatMessage, isMe: Boolean) {
     val fullUrl = ApiClient.buildMediaUrl(msg.mediaUrl)
-    var revealed by remember(msg.id) { mutableStateOf(false) }
     var expired by remember(msg.id) { mutableStateOf(false) }
     var showFullScreen by remember { mutableStateOf(false) }
 
-    // Full-screen photo viewer
+    // Full-screen photo viewer (once-view = secure, no screenshots)
     if (showFullScreen) {
         FullScreenPhotoViewer(
             url = fullUrl,
-            onDismiss = { showFullScreen = false }
+            secure = msg.isOnceView,
+            onDismiss = {
+                showFullScreen = false
+                if (msg.isOnceView) expired = true
+            }
         )
     }
 
@@ -529,49 +532,12 @@ private fun PhotoBubbleContent(msg: ChatMessage, isMe: Boolean) {
                     Text("Photo expired", color = TextTertiary, fontSize = 13.sp)
                 }
             }
-            revealed -> Box(
-                modifier = Modifier
-                    .size(260.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { revealed = false; expired = true }
-            ) {
-                SubcomposeAsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(fullUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = "Photo",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    loading = {
-                        Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                        }
-                    },
-                    error = {
-                        Box(Modifier.fillMaxSize().background(CardBgAlt), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.BrokenImage, "Error", tint = TextTertiary, modifier = Modifier.size(32.dp))
-                                Text("Failed to load", color = TextTertiary, fontSize = 11.sp)
-                            }
-                        }
-                    }
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.35f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Tap to close", color = Color.White, fontSize = 12.sp)
-                }
-            }
             else -> Box(
                 modifier = Modifier
                     .size(220.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(CardBgAlt)
-                    .clickable { revealed = true },
+                    .clickable { showFullScreen = true },
                 contentAlignment = Alignment.Center
             ) {
                 // Blurred preview behind the lock overlay
@@ -644,7 +610,30 @@ private fun PhotoBubbleContent(msg: ChatMessage, isMe: Boolean) {
 
 /** Full-screen photo viewer — black background, tap to dismiss */
 @Composable
-private fun FullScreenPhotoViewer(url: String, onDismiss: () -> Unit) {
+private fun FullScreenPhotoViewer(
+    url: String,
+    onDismiss: () -> Unit,
+    secure: Boolean = false
+) {
+    // FLAG_SECURE blocks screenshots & screen recording.
+    // Unwrap ContextWrapper chain so we always reach the hosting Activity window.
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
+
+    if (secure) {
+        LaunchedEffect(Unit) {
+            activity?.window?.setFlags(
+                android.view.WindowManager.LayoutParams.FLAG_SECURE,
+                android.view.WindowManager.LayoutParams.FLAG_SECURE
+            )
+        }
+        DisposableEffect(Unit) {
+            onDispose {
+                activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+            }
+        }
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -685,6 +674,14 @@ private fun FullScreenPhotoViewer(url: String, onDismiss: () -> Unit) {
         }
     }
 }
+
+/** Walk the ContextWrapper chain to find the hosting Activity (FLAG_SECURE needs its window). */
+private tailrec fun android.content.Context.findActivity(): android.app.Activity? =
+    when (this) {
+        is android.app.Activity -> this
+        is android.content.ContextWrapper -> baseContext.findActivity()
+        else -> null
+    }
 
 /**
  * Telegram-style photo send preview dialog.
