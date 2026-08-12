@@ -34,8 +34,36 @@ object CallManager {
     private var peerUserId: String? = null
     private var isInitiator = false
     private var contextRef: android.content.Context? = null
+    private var audioManager: android.media.AudioManager? = null
+    private var prevAudioMode: Int = android.media.AudioManager.MODE_NORMAL
 
     fun isInCall(): Boolean = activeCallId != null
+
+    /** Route audio to the call: set communication mode + earpiece by default. */
+    private fun startAudioSession(context: Context) {
+        try {
+            val am = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            audioManager = am
+            prevAudioMode = am.mode
+            am.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+            am.isSpeakerphoneOn = false // earpiece by default
+            @Suppress("DEPRECATION")
+            am.requestAudioFocus(null, android.media.AudioManager.STREAM_VOICE_CALL,
+                android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+        } catch (_: Exception) {}
+    }
+
+    private fun stopAudioSession() {
+        try {
+            audioManager?.let { am ->
+                am.mode = prevAudioMode
+                am.isSpeakerphoneOn = false
+                @Suppress("DEPRECATION")
+                am.abandonAudioFocus(null)
+            }
+        } catch (_: Exception) {}
+        audioManager = null
+    }
 
     private val iceServers = listOf(
         PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
@@ -136,6 +164,7 @@ object CallManager {
         listener?.onConnecting()
 
         pc = createPcWithAudio(context)
+        startAudioSession(context)
 
         connectSignaling(context) {
             // Offer created when callee sends "ready" handshake
@@ -151,6 +180,7 @@ object CallManager {
         listener?.onConnecting()
 
         pc = createPcWithAudio(context)
+        startAudioSession(context)
 
         if (remoteOfferSdp != null) {
             pc?.setRemoteDescription(object : SdpObserver {
@@ -284,6 +314,7 @@ object CallManager {
         try { localAudio?.setEnabled(false) } catch (_: Exception) {}
         try { audioSource?.dispose() } catch (_: Exception) {}
         try { ws?.close(1000, "call_end") } catch (_: Exception) {}
+        stopAudioSession()
         pc = null; localAudio = null; audioSource = null; ws = null
         activeCallId = null; peerUserId = null; isInitiator = false
     }

@@ -54,14 +54,11 @@ fun VoiceCallScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasPermission = granted
-        if (granted && callId.isNotBlank() && peerId != null) {
+        // For OUTGOING calls, start once permission is granted.
+        // Incoming calls must NOT auto-answer here — user taps Accept.
+        if (granted && !isIncoming && callId.isNotBlank() && peerId != null && !CallManager.isInCall()) {
             runCatching {
-                if (isIncoming) {
-                    CallManager.answerCall(context, callId, peerId, null)
-                    viewModel.answerCall()
-                } else {
-                    CallManager.startCall(context, callId, peerId)
-                }
+                CallManager.startCall(context, callId, peerId)
             }.onFailure { e ->
                 viewModel.setCallStatus("idle")
                 viewModel.setError(e.message ?: "Call failed to start")
