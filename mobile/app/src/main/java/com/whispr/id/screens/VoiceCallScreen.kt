@@ -35,8 +35,7 @@ fun VoiceCallScreen(
     onEndCall: () -> Unit,
     peerName: String = "Anonymous",
     peerId: String? = null,
-    isIncoming: Boolean = false,
-    routeCallId: String = ""
+    isIncoming: Boolean = false
 ) {
     val context = LocalContext.current
     var isMuted by remember { mutableStateOf(false) }
@@ -48,9 +47,8 @@ fun VoiceCallScreen(
 
     val status by viewModel.callStatus.collectAsState()
     val incomingCall by viewModel.incomingCall.collectAsState()
-    val callId: String = routeCallId.ifBlank {
-        viewModel.activeCall.value?.id ?: incomingCall?.callId ?: ""
-    }
+    val activeCall by viewModel.activeCall.collectAsState()
+    val callId: String = activeCall?.id ?: incomingCall?.callId ?: ""
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -68,6 +66,17 @@ fun VoiceCallScreen(
                 viewModel.setCallStatus("idle")
                 viewModel.setError(e.message ?: "Call failed to start")
                 onEndCall()
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        // For outgoing calls, wait for startCall() to set activeCall (async)
+        if (!isIncoming && callId.isBlank()) {
+            kotlinx.coroutines.withTimeoutOrNull(10_000) {
+                while (viewModel.activeCall.value?.id.isNullOrBlank()) {
+                    kotlinx.coroutines.delay(100)
+                }
             }
         }
     }

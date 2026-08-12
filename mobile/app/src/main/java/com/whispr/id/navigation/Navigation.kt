@@ -43,8 +43,8 @@ sealed class Screen(val route: String) {
     object Profile : Screen("profile")
     object Accounts : Screen("accounts")
     object Links : Screen("links")
-    object VoiceCall : Screen("voice_call/{peerId}/{incoming}/{callId}") {
-        fun createRoute(peerId: String, incoming: Boolean = false, callId: String = "") = "voice_call/$peerId/$incoming/$callId"
+    object VoiceCall : Screen("voice_call/{peerId}/{incoming}") {
+        fun createRoute(peerId: String, incoming: Boolean = false) = "voice_call/$peerId/$incoming"
     }
     object GifPicker : Screen("gif_picker")
     object Settings : Screen("settings")
@@ -71,6 +71,8 @@ fun WhisprNavigation(
     onThemeChange: (ThemeMode) -> Unit = {}
 ) {
     val navController = rememberNavController()
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
     val isAuthReady by viewModel.isAuthReady.collectAsState()
 
@@ -153,8 +155,10 @@ fun WhisprNavigation(
     LaunchedEffect(incomingCall) {
         incomingCall?.let { call ->
             val callerId = call.caller?.id ?: ""
-            if (callerId.isNotBlank()) {
-                navController.navigate(Screen.VoiceCall.createRoute(callerId, incoming = true, callId = call.callId))
+            if (callerId.isNotBlank() && currentRoute != Screen.VoiceCall.route) {
+                navController.navigate(Screen.VoiceCall.createRoute(callerId, incoming = true))
+                // Preserve callId in ViewModel for the screen to consume
+                viewModel.setActiveCallId(call.callId)
             }
             viewModel.setIncomingCall(null)
         }
@@ -308,13 +312,11 @@ fun WhisprNavigation(
             Screen.VoiceCall.route,
             arguments = listOf(
                 navArgument("peerId") { type = NavType.StringType },
-                navArgument("incoming") { type = NavType.BoolType; defaultValue = false },
-                navArgument("callId") { type = NavType.StringType; defaultValue = "" }
+                navArgument("incoming") { type = NavType.BoolType; defaultValue = false }
             )
         ) { backStackEntry ->
             val peerId = backStackEntry.arguments?.getString("peerId") ?: ""
             val incoming = backStackEntry.arguments?.getBoolean("incoming") ?: false
-            val callIdArg = backStackEntry.arguments?.getString("callId") ?: ""
             // Peer display name from chats list (fallback: Anonymous)
             val peerName = viewModel.chats.value
                 .firstOrNull { it.user?.id == peerId }
@@ -324,8 +326,7 @@ fun WhisprNavigation(
                 onEndCall = { navController.popBackStack() },
                 peerName = peerName,
                 peerId = peerId,
-                isIncoming = incoming,
-                routeCallId = callIdArg
+                isIncoming = incoming
             )
         }
 

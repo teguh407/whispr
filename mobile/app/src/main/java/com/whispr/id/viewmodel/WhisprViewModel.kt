@@ -559,6 +559,10 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { err(e) }
     }
 
+    fun setActiveCallId(callId: String) {
+        _activeCall.value = CallSession(id = callId, status = "ringing")
+    }
+
     fun answerCall() = viewModelScope.launch {
         try {
             val cid = _activeCall.value?.id
