@@ -44,6 +44,7 @@ fun RegisterScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Background, Surface)))
+            .systemBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

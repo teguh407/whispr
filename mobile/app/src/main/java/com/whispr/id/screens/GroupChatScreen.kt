@@ -151,6 +151,8 @@ fun GroupChatScreen(
                 Modifier
                     .fillMaxWidth()
                     .background(Surface)
+                    .navigationBarsPadding()
+                    .imePadding()
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

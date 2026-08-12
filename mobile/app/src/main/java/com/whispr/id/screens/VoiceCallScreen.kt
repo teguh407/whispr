@@ -152,7 +152,7 @@ fun VoiceCallScreen(
             .background(Brush.verticalGradient(listOf(Background, VioletDeep.copy(alpha = 0.35f), Background)))
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(32.dp),
+            modifier = Modifier.fillMaxSize().systemBarsPadding().padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(72.dp))
