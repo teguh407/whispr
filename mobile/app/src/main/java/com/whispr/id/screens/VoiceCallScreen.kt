@@ -57,11 +57,17 @@ fun VoiceCallScreen(
     ) { granted ->
         hasPermission = granted
         if (granted && callId.isNotBlank() && peerId != null) {
-            if (isIncoming) {
-                CallManager.answerCall(context, callId, peerId, null)
-                viewModel.answerCall()
-            } else {
-                CallManager.startCall(context, callId, peerId)
+            runCatching {
+                if (isIncoming) {
+                    CallManager.answerCall(context, callId, peerId, null)
+                    viewModel.answerCall()
+                } else {
+                    CallManager.startCall(context, callId, peerId)
+                }
+            }.onFailure { e ->
+                viewModel.setCallStatus("idle")
+                viewModel.setError(e.message ?: "Call failed to start")
+                onEndCall()
             }
         }
     }
@@ -69,11 +75,17 @@ fun VoiceCallScreen(
     // Start/answer the WebRTC call once we have an id + permission
     LaunchedEffect(callId, peerId, hasPermission, isIncoming) {
         if (callId.isNotBlank() && peerId != null && hasPermission && !CallManager.isInCall()) {
-            if (isIncoming) {
-                CallManager.answerCall(context, callId, peerId, null)
-                viewModel.answerCall()
-            } else {
-                CallManager.startCall(context, callId, peerId)
+            runCatching {
+                if (isIncoming) {
+                    CallManager.answerCall(context, callId, peerId, null)
+                    viewModel.answerCall()
+                } else {
+                    CallManager.startCall(context, callId, peerId)
+                }
+            }.onFailure { e ->
+                viewModel.setCallStatus("idle")
+                viewModel.setError(e.message ?: "Call failed to start")
+                onEndCall()
             }
         }
     }

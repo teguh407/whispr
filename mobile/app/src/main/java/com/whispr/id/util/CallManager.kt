@@ -42,12 +42,16 @@ object CallManager {
         PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer()
     )
 
+    private var factoryInitialized = false
+
     private fun initFactory(context: Context) {
+        if (factoryInitialized) return
         PeerConnectionFactory.initialize(
             PeerConnectionFactory.InitializationOptions.builder(context)
                 .setEnableInternalTracer(false)
                 .createInitializationOptions()
         )
+        factoryInitialized = true
     }
 
     private fun buildObserver(): PeerConnection.Observer = object : PeerConnection.Observer {

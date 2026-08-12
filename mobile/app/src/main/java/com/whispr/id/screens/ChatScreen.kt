@@ -1,6 +1,7 @@
 package com.whispr.id.screens
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Build
@@ -40,6 +41,7 @@ import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.google.gson.Gson
+import androidx.core.content.ContextCompat
 import com.whispr.id.data.ChatMessage
 import com.whispr.id.data.UploadResponse
 import com.whispr.id.data.WsMessage
@@ -159,6 +161,13 @@ fun ChatScreen(
         ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) uploadPickedDocument(uri)
+    }
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            viewModel.setError("Microphone ready — tap mic to record")
+        }
     }
 
     LaunchedEffect(chatId) {
@@ -395,6 +404,14 @@ fun ChatScreen(
                             }
                         } catch (_: Exception) { mediaRecorder = null; isRecording = false }
                     } else {
+                        // Request mic permission first (MediaRecorder silently fails without it)
+                        val micGranted = ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (!micGranted) {
+                            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            return@IconButton
+                        }
                         try {
                             val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
                             val mr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -414,7 +431,9 @@ fun ChatScreen(
                             mediaRecorder = mr
                             recordedFile = file
                             isRecording = true
-                        } catch (_: Exception) {}
+                        } catch (e: Exception) {
+                            viewModel.setError("Mic error: ${e.message}")
+                        }
                     }
                 }) {
                     Icon(

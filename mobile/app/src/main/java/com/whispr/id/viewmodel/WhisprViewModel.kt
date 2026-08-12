@@ -136,6 +136,9 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         _error.value = e.message ?: "Unknown error"
     }
 
+    /** Public error setter (used by UI for local failures). */
+    fun setError(msg: String) { _error.value = msg }
+
     fun clearError() { _error.value = null }
 
     // Auth
