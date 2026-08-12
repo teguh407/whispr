@@ -504,6 +504,15 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { err(e) }
     }
 
+    fun loadTrendingGifs() = viewModelScope.launch {
+        try {
+            _loading.value = true
+            val resp = ApiClient.api.trendingGifs()
+            if (resp.isSuccessful) _gifs.value = resp.body() ?: emptyList()
+        } catch (e: Exception) { err(e) }
+        finally { _loading.value = false }
+    }
+
     // Call
     private val _activeCall = MutableStateFlow<CallSession?>(null)
     val activeCall: StateFlow<CallSession?> = _activeCall

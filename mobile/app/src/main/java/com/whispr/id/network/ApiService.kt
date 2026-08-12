@@ -126,6 +126,9 @@ interface ApiService {
     @GET("api/gif/search")
     suspend fun searchGifs(@Query("q") query: String): Response<List<GifResult>>
 
+    @GET("api/gif/trending")
+    suspend fun trendingGifs(): Response<List<GifResult>>
+
     // Call
     @POST("api/call/start")
     suspend fun startCall(@Query("target_user_id") userId: String): Response<CallSession>

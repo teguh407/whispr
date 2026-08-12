@@ -64,10 +64,14 @@ object CallManager {
         override fun onSignalingChange(state: PeerConnection.SignalingState?) {}
         override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
             when (state) {
+                // Only mark "active" when ICE actually connects (real media path)
                 PeerConnection.IceConnectionState.CONNECTED,
                 PeerConnection.IceConnectionState.COMPLETED -> listener?.onConnected()
                 PeerConnection.IceConnectionState.DISCONNECTED,
-                PeerConnection.IceConnectionState.FAILED -> endCall(contextRef!!, notifyPeer = true)
+                PeerConnection.IceConnectionState.FAILED,
+                PeerConnection.IceConnectionState.CLOSED -> {
+                    contextRef?.let { endCall(it, notifyPeer = true) }
+                }
                 else -> {}
             }
         }
@@ -84,11 +88,14 @@ object CallManager {
             })
         }
         override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>?) {}
-        override fun onAddStream(stream: MediaStream?) { listener?.onConnected() }
+        // NOTE: do NOT fire onConnected() here — a remote track can be added
+        // during negotiation before ICE connectivity is established, which made
+        // the call show "connected" with a running timer prematurely.
+        override fun onAddStream(stream: MediaStream?) {}
         override fun onRemoveStream(stream: MediaStream?) {}
         override fun onDataChannel(channel: DataChannel?) {}
         override fun onRenegotiationNeeded() {}
-        override fun onAddTrack(receiver: RtpReceiver?, streams: Array<out MediaStream>?) { listener?.onConnected() }
+        override fun onAddTrack(receiver: RtpReceiver?, streams: Array<out MediaStream>?) {}
     }
 
     private fun createPcWithAudio(context: Context): PeerConnection? {
@@ -232,7 +239,9 @@ object CallManager {
                     val sdp = json.optString("sdp")
                     pc?.setRemoteDescription(object : SdpObserver {
                         override fun onCreateSuccess(desc: SessionDescription?) {}
-                        override fun onSetSuccess() { listener?.onConnected() }
+                        // Setting the remote answer does NOT mean media is flowing —
+                        // wait for onIceConnectionChange(CONNECTED) to mark active.
+                        override fun onSetSuccess() {}
                         override fun onSetFailure(e: String?) { listener?.onError("Set answer failed: $e") }
                         override fun onCreateFailure(e: String?) {}
                     }, SessionDescription(SessionDescription.Type.ANSWER, sdp))

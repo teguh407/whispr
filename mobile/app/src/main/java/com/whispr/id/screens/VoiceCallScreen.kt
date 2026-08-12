@@ -81,16 +81,12 @@ fun VoiceCallScreen(
         }
     }
 
-    // Start/answer the WebRTC call once we have an id + permission
+    // Auto-START only for OUTGOING calls. Incoming calls must wait for the
+    // user to tap Accept (otherwise callee "connects" instantly).
     LaunchedEffect(callId, peerId, hasPermission, isIncoming) {
-        if (callId.isNotBlank() && peerId != null && hasPermission && !CallManager.isInCall()) {
+        if (!isIncoming && callId.isNotBlank() && peerId != null && hasPermission && !CallManager.isInCall()) {
             runCatching {
-                if (isIncoming) {
-                    CallManager.answerCall(context, callId, peerId, null)
-                    viewModel.answerCall()
-                } else {
-                    CallManager.startCall(context, callId, peerId)
-                }
+                CallManager.startCall(context, callId, peerId)
             }.onFailure { e ->
                 viewModel.setCallStatus("idle")
                 viewModel.setError(e.message ?: "Call failed to start")

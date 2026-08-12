@@ -663,50 +663,46 @@ private fun PhotoBubbleContent(
         when {
             expired -> Box(
                 modifier = Modifier
-                    .size(220.dp)
+                    .widthIn(min = 160.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(CardBgAlt),
+                    .background(CardBgAlt)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.HideImage, "Expired",
-                        tint = TextTertiary, modifier = Modifier.size(36.dp))
-                    Spacer(Modifier.height(8.dp))
-                    Text("Photo expired", color = TextTertiary, fontSize = 13.sp)
-                }
+                Text(
+                    "Photo expired",
+                    color = TextTertiary,
+                    fontSize = 13.sp,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                )
             }
             else -> Box(
                 modifier = Modifier
-                    .size(220.dp)
+                    .widthIn(min = 200.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(CardBgAlt)
-                    .clickable { showFullScreen = true },
-                contentAlignment = Alignment.Center
+                    .background(
+                        Brush.linearGradient(
+                            listOf(PrimaryPurple.copy(alpha = 0.9f), VioletBright.copy(alpha = 0.9f))
+                        )
+                    )
+                    .clickable { showFullScreen = true }
+                    .padding(horizontal = 18.dp, vertical = 16.dp)
             ) {
-                // Blurred preview behind the lock overlay
-                SubcomposeAsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(fullUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize().blur(18.dp),
-                    contentScale = ContentScale.Crop,
-                    loading = { Box(Modifier.fillMaxSize().background(CardBgAlt)) },
-                    error = { Box(Modifier.fillMaxSize().background(CardBgAlt)) }
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.55f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.Lock, "Locked",
-                            tint = Color.White, modifier = Modifier.size(32.dp))
-                        Spacer(Modifier.height(8.dp))
-                        Text("Tap to view once",
-                            color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.LocalFireDepartment, "Self-destructing",
+                        tint = Color.White, modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            "Self-destructing photo",
+                            color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Tap to view once",
+                            color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp
+                        )
                     }
                 }
             }

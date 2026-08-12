@@ -34,10 +34,15 @@ fun GifPickerScreen(
     val loading by viewModel.loading.collectAsState()
     var query by remember { mutableStateOf("") }
 
+    // Auto-load trending GIFs when the picker opens (so it's never empty)
+    LaunchedEffect(Unit) {
+        viewModel.loadTrendingGifs()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Search GIFs", fontWeight = FontWeight.Bold) },
+                title = { Text(if (query.isBlank()) "Trending GIFs" else "Search GIFs", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, "Back")
@@ -53,12 +58,23 @@ fun GifPickerScreen(
         containerColor = Background
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            // Search bar
+            // Search bar — typing searches live; clearing returns to trending
             OutlinedTextField(
                 value = query,
-                onValueChange = { query = it },
+                onValueChange = {
+                    query = it
+                    if (it.isBlank()) viewModel.loadTrendingGifs()
+                    else if (it.length >= 2) viewModel.searchGifs(it)
+                },
                 placeholder = { Text("Search GIFs...", color = TextSecondary) },
                 leadingIcon = { Icon(Icons.Default.Search, null, tint = PrimaryPurple) },
+                trailingIcon = {
+                    if (query.isNotBlank()) {
+                        IconButton(onClick = { query = ""; viewModel.loadTrendingGifs() }) {
+                            Icon(Icons.Default.Close, "Clear", tint = TextSecondary)
+                        }
+                    }
+                },
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -71,16 +87,6 @@ fun GifPickerScreen(
                 ),
                 singleLine = true
             )
-
-            // Search button
-            Button(
-                onClick = { if (query.isNotBlank()) viewModel.searchGifs(query) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(40.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-            ) { Text("Search") }
-
-            Spacer(Modifier.height(8.dp))
 
             // Loading / empty / grid
             if (loading && gifs.isEmpty()) {
