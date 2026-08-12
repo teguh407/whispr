@@ -246,7 +246,9 @@ object CallManager {
                         listener?.onRemoteIce()
                     }
                 }
-                "call_ended" -> listener?.onCallEnded()
+                "call_ended" -> {
+                    scope.launch { listener?.onCallEnded() }
+                }
             }
         } catch (_: Exception) {}
     }
