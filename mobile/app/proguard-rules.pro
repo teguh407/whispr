@@ -75,6 +75,11 @@
     <methods>;
 }
 
+# ── Firebase Cloud Messaging ──
+-keep class com.google.firebase.** { *; }
+-keep class com.whispr.id.util.WhisprMessagingService { *; }
+-dontwarn com.google.firebase.**
+
 # ── Keep app classes referenced by reflection/navigation ──
 -keep class com.whispr.id.navigation.** { *; }
 -keep class com.whispr.id.network.** { *; }

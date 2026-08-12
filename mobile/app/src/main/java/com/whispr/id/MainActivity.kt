@@ -1,5 +1,6 @@
 package com.whispr.id
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,9 +18,21 @@ import com.whispr.id.ui.theme.WhisprTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private val notifPermLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { /* granted or not — non-fatal */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // Notification channels + runtime permission (Android 13+)
+        com.whispr.id.util.WhisprMessagingService.ensureChannels(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                notifPermLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
         setContent {
             val context = LocalContext.current
             val scope = rememberCoroutineScope()

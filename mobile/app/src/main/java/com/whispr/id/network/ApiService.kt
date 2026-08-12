@@ -20,6 +20,10 @@ interface ApiService {
     @GET("api/me")
     suspend fun getMe(): Response<User>
 
+    // Push notifications (FCM)
+    @POST("api/me/fcm-token")
+    suspend fun registerFcmToken(@Body body: Map<String, String>): Response<Unit>
+
     @PUT("api/me")
     suspend fun updateProfile(@Body profile: ProfileUpdate): Response<User>
 

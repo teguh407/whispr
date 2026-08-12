@@ -124,6 +124,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
                 try {
                     _currentUser.value = ApiClient.api.getMe().body()
                     _isLoggedIn.value = true
+                    registerPushToken()
                 } catch (e: Exception) {
                     TokenStore.clearToken(ctx())
                 }
@@ -140,6 +141,24 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
     fun setError(msg: String) { _error.value = msg }
 
     fun clearError() { _error.value = null }
+
+    /** Fetch the current FCM token and register it with the backend. Call after login. */
+    fun registerPushToken() {
+        try {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        val token = task.result
+                        if (!token.isNullOrBlank()) {
+                            viewModelScope.launch {
+                                try { ApiClient.api.registerFcmToken(mapOf("fcm_token" to token)) }
+                                catch (_: Exception) {}
+                            }
+                        }
+                    }
+                }
+        } catch (_: Exception) { /* non-fatal */ }
+    }
 
     // Auth
     fun login(email: String, password: String) = viewModelScope.launch {
@@ -158,6 +177,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
             }
         } catch (e: Exception) { err(e) }
         _loading.value = false
+        registerPushToken()
     }
 
     fun register(username: String, password: String, displayName: String) = viewModelScope.launch {
@@ -176,6 +196,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
             }
         } catch (e: Exception) { err(e) }
         _loading.value = false
+        registerPushToken()
     }
 
     fun googleAuth(idToken: String) = viewModelScope.launch {
@@ -194,6 +215,7 @@ class WhisprViewModel(application: Application) : AndroidViewModel(application) 
             }
         } catch (e: Exception) { err(e) }
         _loading.value = false
+        registerPushToken()
     }
 
     fun logout() = viewModelScope.launch {
