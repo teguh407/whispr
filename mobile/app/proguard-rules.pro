@@ -67,6 +67,14 @@
 # ── WebSocket (OkHttp) ──
 -keep class okhttp3.internal.ws.** { *; }
 
+# ── WebRTC (critical: R8 strips these without keep → NoClassDefFoundError) ──
+-keep class org.webrtc.** { *; }
+-dontwarn org.webrtc.**
+-keepclassmembers class org.webrtc.** {
+    <fields>;
+    <methods>;
+}
+
 # ── Keep app classes referenced by reflection/navigation ──
 -keep class com.whispr.id.navigation.** { *; }
 -keep class com.whispr.id.network.** { *; }

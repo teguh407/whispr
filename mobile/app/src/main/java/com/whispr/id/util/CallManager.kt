@@ -46,6 +46,12 @@ object CallManager {
 
     private fun initFactory(context: Context) {
         if (factoryInitialized) return
+        try {
+            System.loadLibrary("jingle_peerconnection_so")
+        } catch (_: Throwable) {
+            // Library is usually loaded automatically by PeerConnectionFactory;
+            // do not crash here — real init below handles it.
+        }
         PeerConnectionFactory.initialize(
             PeerConnectionFactory.InitializationOptions.builder(context)
                 .setEnableInternalTracer(false)
