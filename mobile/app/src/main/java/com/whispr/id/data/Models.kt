@@ -181,6 +181,7 @@ data class ChatMessage(
     @SerializedName("expires_at") val expiresAt: String? = null,
     @SerializedName("is_once_view") val isOnceView: Boolean = false,
     @SerializedName("is_viewed") val isViewed: Boolean = false,
+    @SerializedName("duration_seconds") val durationSeconds: Int? = null,
     @SerializedName("filename") val filename: String? = null,
     @SerializedName("file_size") val fileSize: Long? = null
 )
@@ -194,6 +195,7 @@ data class WsMessage(
     @SerializedName("media_url") val mediaUrl: String? = null,
     @SerializedName("is_once_view") val isOnceView: Boolean? = null,
     @SerializedName("ttl_seconds") val destructSeconds: Int? = null,
+    @SerializedName("duration_seconds") val durationSeconds: Int? = null,
     @SerializedName("filename") val filename: String? = null,
     val timestamp: String? = null
 )

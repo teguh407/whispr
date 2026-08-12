@@ -8,6 +8,7 @@ import android.os.Build
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -73,6 +75,7 @@ fun ChatScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isRecording by remember { mutableStateOf(false) }
+    var recordingSeconds by remember { mutableStateOf(0) }
     var mediaRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var recordedFile by remember { mutableStateOf<File?>(null) }
     var ws by remember { mutableStateOf<WebSocket?>(null) }
@@ -196,6 +199,7 @@ fun ChatScreen(
                                     type = msg.type,
                                     mediaUrl = msg.mediaUrl,
                                     isOnceView = msg.isOnceView ?: false,
+                                    durationSeconds = msg.durationSeconds,
                                     filename = msg.filename,
                                     createdAt = msg.timestamp
                                 )
@@ -384,19 +388,28 @@ fun ChatScreen(
                             // Upload recorded voice note and send via WebSocket
                             recordedFile?.let { vfile ->
                                 if (vfile.exists() && vfile.length() > 0) {
+                                    // Measure duration locally before upload
+                                    val durSec = try {
+                                        val mp = android.media.MediaPlayer().apply { setDataSource(vfile.absolutePath); prepare() }
+                                        val d = mp.duration / 1000
+                                        mp.release()
+                                        d
+                                    } catch (_: Exception) { 0 }
                                     viewModel.uploadVoice(vfile) { resp ->
                                         if (resp != null) {
                                             val wsMsg = WsMessage(
                                                 type = "voice",
                                                 chatId = chatId,
-                                                mediaUrl = resp.url
+                                                mediaUrl = resp.url,
+                                                durationSeconds = durSec.takeIf { it > 0 }
                                             )
                                             ws?.send(Gson().toJson(wsMsg))
                                             viewModel.addMessage(
                                                 ChatMessage(
                                                     senderId = currentUser?.id ?: "",
                                                     type = "voice",
-                                                    mediaUrl = resp.url
+                                                    mediaUrl = resp.url,
+                                                    durationSeconds = durSec.takeIf { it > 0 }
                                                 )
                                             )
                                         }
@@ -437,11 +450,46 @@ fun ChatScreen(
                         }
                     }
                 }) {
-                    Icon(
-                        if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
-                        "Voice",
-                        tint = if (isRecording) ErrorRed else PrimaryPurple
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
+                            "Voice",
+                            tint = if (isRecording) ErrorRed else PrimaryPurple
+                        )
+                        // Pulsing red dot + live timer while recording
+                        if (isRecording) {
+                            val recPulse by rememberInfiniteTransition(label = "recPulse").animateFloat(
+                                initialValue = 1f, targetValue = 1.45f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(600, easing = FastOutSlowInEasing),
+                                    repeatMode = RepeatMode.Reverse
+                                ), label = "recPulseScale"
+                            )
+                            LaunchedEffect(isRecording) {
+                                recordingSeconds = 0
+                                while (isRecording) {
+                                    kotlinx.coroutines.delay(1000)
+                                    if (isRecording) recordingSeconds++
+                                }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 2.dp, y = (-2).dp)
+                                    .size(10.dp)
+                                    .scale(recPulse)
+                                    .clip(CircleShape)
+                                    .background(ErrorRed)
+                            )
+                            Text(
+                                "${recordingSeconds / 60}:${String.format("%02d", recordingSeconds % 60)}",
+                                color = ErrorRed,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.align(Alignment.BottomCenter).offset(y = 4.dp)
+                            )
+                        }
+                    }
                 }
 
                 OutlinedTextField(
@@ -971,7 +1019,8 @@ private fun VoiceBubbleContent(msg: ChatMessage, isMe: Boolean) {
     val fullUrl = ApiClient.buildMediaUrl(msg.mediaUrl)
     var mediaPlayer by remember(msg.id) { mutableStateOf<android.media.MediaPlayer?>(null) }
     var isPlaying by remember(msg.id) { mutableStateOf(false) }
-    var duration by remember(msg.id) { mutableStateOf(0) }
+    // Prefer server-provided duration; fall back to 0 until first play measures it
+    var duration by remember(msg.id) { mutableStateOf(msg.durationSeconds ?: 0) }
     var position by remember(msg.id) { mutableStateOf(0) }
 
     // Cleanup MediaPlayer when bubble leaves composition
