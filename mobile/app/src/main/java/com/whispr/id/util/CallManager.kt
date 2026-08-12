@@ -67,7 +67,16 @@ object CallManager {
 
     private val iceServers = listOf(
         PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
-        PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer()
+        PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
+        // Whispr self-hosted TURN (Oracle) — relay for calls across different NATs
+        PeerConnection.IceServer.builder("turn:129.225.1.184:3478?transport=udp")
+            .setUsername("whispr")
+            .setPassword("wh1spr_turn_9847cb06")
+            .createIceServer(),
+        PeerConnection.IceServer.builder("turn:129.225.1.184:3478?transport=tcp")
+            .setUsername("whispr")
+            .setPassword("wh1spr_turn_9847cb06")
+            .createIceServer()
     )
 
     private var factoryInitialized = false
