@@ -145,6 +145,9 @@ object CallManager {
         localAudio?.setEnabled(true)
         val rtcConfig = PeerConnection.RTCConfiguration(iceServers)
         rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
+        // Anonymity: force ALL media through the TURN relay so the peer never
+        // sees the caller's real IP address (no direct P2P host/srflx candidates).
+        rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.RELAY
         val conn = factory.createPeerConnection(rtcConfig, buildObserver())
         conn?.addTrack(localAudio, listOf("stream1"))
         conn?.setAudioPlayout(true)
