@@ -155,12 +155,8 @@ fun FeedScreen(
                             IconButton(onClick = { onNavigate("explore") }) {
                                 Icon(Icons.Outlined.Search, "Search", tint = TextSecondary)
                             }
-                            IconButton(onClick = { onNavigate("games") }) {
-                                Icon(Icons.Outlined.SportsEsports, "Games", tint = TextSecondary)
-                            }
-                            IconButton(onClick = { onNavigate("stories") }) {
-                                Icon(Icons.Outlined.PhotoCamera, "Stories", tint = TextSecondary)
-                            }
+                            // Games & Stories hidden — focus app on chat/voice/feed.
+                            // Re-enable when user base is active enough for social features.
                         }
                     }
                     Spacer(Modifier.height(2.dp))

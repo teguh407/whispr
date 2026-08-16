@@ -31,10 +31,9 @@ private val postTypes = listOf(
     PostType("anonymous", "Anonymous", Icons.Filled.VisibilityOff),
     PostType("question", "Question", Icons.Filled.HelpOutline),
     PostType("confession", "Confession", Icons.Filled.Lock),
-    PostType("poll", "Poll", Icons.Filled.BarChart),
     PostType("voice", "Voice", Icons.Filled.Mic),
     PostType("photo", "Photo", Icons.Filled.PhotoCamera),
-    PostType("nearby", "Nearby Chat", Icons.Filled.LocationOn),
+    // "poll" & "nearby" hidden — trimmed to keep post types focused.
 )
 
 private val moods = listOf(
